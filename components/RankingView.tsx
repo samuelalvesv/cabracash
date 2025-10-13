@@ -56,8 +56,18 @@ const percentFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 
-function formatField(value: unknown, format: "percent" | "number" | "decimal"): string {
-  if (typeof value !== "number" || Number.isNaN(value)) {
+type MetricFormat = "percent" | "number" | "decimal";
+
+function formatMetricValue(value: number | string | null | undefined, format: MetricFormat = "decimal") {
+  if (value === null || value === undefined) {
+    return "—";
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (Number.isNaN(value)) {
     return "—";
   }
 
@@ -361,7 +371,7 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
                         </Typography>
                         <Table size="small">
                           <TableBody>
-                            {Object.entries(FUNDAMENTAL_LABELS).map(([key, label]) => (
+                            {FUNDAMENTAL_CONFIG.map(({ key, label, getValue, format }) => (
                               <TableRow key={key}>
                                 <TableCell sx={{ border: 0 }}>
                                   <Typography variant="body2" color="text.secondary">
@@ -370,7 +380,7 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
                                 </TableCell>
                                 <TableCell align="right" sx={{ border: 0 }}>
                                   <Typography variant="body2" fontWeight={600}>
-                                    {formatField(raw?.[key], "decimal")}
+                                    {formatMetricValue(getValue(item), format)}
                                   </Typography>
                                 </TableCell>
                               </TableRow>
@@ -389,7 +399,7 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
                         </Typography>
                         <Table size="small">
                           <TableBody>
-                            {Object.entries(OPPORTUNITY_LABELS).map(([key, label]) => (
+                            {OPPORTUNITY_CONFIG.map(({ key, label, getValue, format }) => (
                               <TableRow key={key}>
                                 <TableCell sx={{ border: 0 }}>
                                   <Typography variant="body2" color="text.secondary">
@@ -398,7 +408,7 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
                                 </TableCell>
                                 <TableCell align="right" sx={{ border: 0 }}>
                                   <Typography variant="body2" fontWeight={600}>
-                                    {formatField(raw?.[key], "decimal")}
+                                    {formatMetricValue(getValue(item), format)}
                                   </Typography>
                                 </TableCell>
                               </TableRow>
@@ -460,25 +470,32 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
 }
 
 export default RankingView;
-const FUNDAMENTAL_LABELS: Record<string, string> = {
-  expenseRatio: "Custo",
-  dollarVolume: "Liquidez (log)",
-  issuerScore: "Emissor",
-  sharpeRatio: "Sharpe",
-  sortinoRatio: "Sortino",
-  dividendYield: "Yield",
-  dividendGrowthYears: "Dividendos (anos)",
-  dividendGrowth: "Crescimento Div.",
-  betaDeviation: "Beta (desvio)",
-  atrRatio: "ATR/Preço",
+type MetricConfig = {
+  key: string;
+  label: string;
+  format?: MetricFormat;
+  getValue: (item: RankedEtf) => number | string | null | undefined;
 };
 
-const OPPORTUNITY_LABELS: Record<string, string> = {
-  top52Distance: "Dist. Topo 52",
-  bottom52Distance: "Dist. Fundo 52",
-  movingAverageCombo: "Médias Móveis",
-  rsi: "RSI",
-  relativeVolume: "Volume Rel.",
-  totalReturn1m: "Retorno 1m",
-  intradayChange: "Mov. Intradiário",
-};
+const FUNDAMENTAL_CONFIG: MetricConfig[] = [
+  { key: "expenseRatio", label: "Custo", format: "percent", getValue: (item) => item.raw.expenseRatio as number | null | undefined },
+  { key: "dollarVolume", label: "Liquidez (log)", getValue: (item) => item.features.dollarVolume },
+  { key: "issuerScore", label: "Emissor (score)", getValue: (item) => item.features.issuerScore },
+  { key: "sharpeRatio", label: "Sharpe", getValue: (item) => item.raw.sharpeRatio as number | null | undefined },
+  { key: "sortinoRatio", label: "Sortino", getValue: (item) => item.raw.sortinoRatio as number | null | undefined },
+  { key: "dividendYield", label: "Yield", format: "percent", getValue: (item) => item.raw.dividendYield as number | null | undefined },
+  { key: "dividendGrowthYears", label: "Dividendos (anos)", format: "number", getValue: (item) => item.raw.dividendGrowthYears as number | null | undefined },
+  { key: "dividendGrowth", label: "Crescimento Div.", getValue: (item) => item.raw.dividendGrowth as number | null | undefined },
+  { key: "betaDeviation", label: "Beta (desvio)", getValue: (item) => item.features.betaDeviation },
+  { key: "atrRatio", label: "ATR/Preço", getValue: (item) => item.features.atrRatio },
+];
+
+const OPPORTUNITY_CONFIG: MetricConfig[] = [
+  { key: "top52Distance", label: "Dist. Topo 52", getValue: (item) => item.features.top52Distance },
+  { key: "bottom52Distance", label: "Dist. Fundo 52", getValue: (item) => item.features.bottom52Distance },
+  { key: "movingAverageCombo", label: "Médias Móveis", getValue: (item) => item.features.movingAverageCombo },
+  { key: "rsi", label: "RSI", getValue: (item) => item.raw.rsi as number | null | undefined, format: "decimal" },
+  { key: "relativeVolume", label: "Volume Rel.", getValue: (item) => item.raw.relativeVolume as number | null | undefined },
+  { key: "totalReturn1m", label: "Retorno 1m", getValue: (item) => item.raw.tr1m as number | null | undefined },
+  { key: "intradayChange", label: "Mov. Intradiário", getValue: (item) => item.raw.changeFromOpen as number | null | undefined },
+];
