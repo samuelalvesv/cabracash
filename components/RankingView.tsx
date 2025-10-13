@@ -13,19 +13,25 @@ import {
   Chip,
   Container,
   Divider,
-  Grid,
+  IconButton,
   LinearProgress,
   Pagination,
+  Paper,
   Stack,
   Table,
   TableBody,
   TableCell,
   TableRow,
+  Tooltip,
   Typography,
+  useTheme,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import LightModeIcon from "@mui/icons-material/LightMode";
+import DarkModeIcon from "@mui/icons-material/DarkMode";
 
 import type { RankedEtf } from "@/lib/ranking/types";
+import { useColorMode } from "@/hooks/useColorMode";
 
 interface RankingViewProps {
   items: RankedEtf[];
@@ -92,9 +98,11 @@ export function RankingView({
 }: RankingViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const theme = useTheme();
+  const { mode, toggleColorMode } = useColorMode();
 
   const handlePageChange = useCallback(
-    (_: React.ChangeEvent<unknown>, page: number) => {
+    (_: unknown, page: number) => {
       const params = new URLSearchParams(searchParams?.toString() ?? "");
       if (page === 1) {
         params.delete("page");
@@ -116,9 +124,14 @@ export function RankingView({
   }, [startIndex, endIndex, totalItems]);
 
   return (
-    <Container maxWidth="lg" sx={{ py: 6 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 } }}>
       <Stack spacing={4}>
-        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={2}>
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          justifyContent="space-between"
+          alignItems={{ xs: "flex-start", sm: "center" }}
+          spacing={2}
+        >
           <Box>
             <Typography variant="h3" fontWeight={700}>
               Ranking unificado de ETFs
@@ -127,20 +140,74 @@ export function RankingView({
               Fundamentos e oportunidade de compra analisados de forma independente da categoria declarada.
             </Typography>
           </Box>
-          <Chip label={`Total: ${totalItems}`} color="primary" variant="outlined" sx={{ alignSelf: "flex-start" }} />
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Tooltip title={`Alternar para modo ${mode === "dark" ? "claro" : "escuro"}`} arrow>
+              <Paper
+                variant="outlined"
+                sx={{ display: "flex", alignItems: "center", px: 1, py: 0.5, borderRadius: 999, backdropFilter: "blur(8px)" }}
+              >
+                <IconButton color="primary" onClick={toggleColorMode} aria-label="Alternar tema" size="small">
+                  {mode === "dark" ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+                </IconButton>
+              </Paper>
+            </Tooltip>
+            <Chip label={`Total: ${totalItems}`} color="primary" variant="outlined" />
+          </Stack>
         </Stack>
 
         <Alert severity={totalItems === 0 ? "warning" : "info"}>{helperText}</Alert>
 
-        <Grid container spacing={3}>
+        {totalPages > 1 && (
+          <Stack alignItems="center">
+            <Pagination
+              page={currentPage}
+              count={totalPages}
+              color="primary"
+              variant="outlined"
+              onChange={handlePageChange}
+              size="medium"
+              showFirstButton
+              showLastButton
+            />
+          </Stack>
+        )}
+
+        <Box
+          sx={{
+            display: "grid",
+            gap: 3,
+            justifyContent: "center",
+            gridTemplateColumns: {
+              xs: "minmax(0, 1fr)",
+              sm: `repeat(2, minmax(0, 320px))`,
+              lg: `repeat(3, minmax(0, 340px))`,
+            },
+          }}
+        >
           {items.map((item, idx) => {
             const position = startIndex + idx;
             const { scores, raw } = item;
 
             return (
-              <Grid item xs={12} md={6} key={item.symbol}>
-                <Card variant="outlined" sx={{ height: "100%" }}>
-                  <CardContent>
+              <Box key={item.symbol} sx={{ display: "flex", width: "100%" }}>
+                <Card
+                  variant="outlined"
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    flexGrow: 1,
+                    width: "100%",
+                    height: "100%",
+                  }}
+                >
+                  <CardContent
+                    sx={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 3,
+                      flexGrow: 1,
+                    }}
+                  >
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                       <Typography variant="h5" fontWeight={700}>
                         #{position} • {item.symbol}
@@ -148,7 +215,7 @@ export function RankingView({
                       <Chip label={`Score ${formatScore(scores.final)}`} color="primary" size="medium" />
                     </Stack>
 
-                    <Stack spacing={2} mt={3}>
+                    <Stack spacing={2} flexGrow={1}>
                       <Stack spacing={1}>
                         <Typography variant="subtitle2" color="text.secondary">
                           Fundamentos
@@ -170,7 +237,7 @@ export function RankingView({
                       </Stack>
                     </Stack>
 
-                    <Divider sx={{ my: 3 }} />
+                    <Divider />
 
                     <Table size="small">
                       <TableBody>
@@ -191,7 +258,7 @@ export function RankingView({
                       </TableBody>
                     </Table>
 
-                    <Accordion elevation={0} sx={{ mt: 2 }}>
+                    <Accordion elevation={0}>
                       <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 0 }}>
                         <Typography variant="body2" fontWeight={600}>
                           Ver dados brutos
@@ -201,7 +268,7 @@ export function RankingView({
                         <Box
                           component="pre"
                           sx={{
-                            bgcolor: "grey.900",
+                            bgcolor: theme.palette.mode === "dark" ? "#0f172a" : "grey.900",
                             color: "grey.100",
                             p: 2,
                             borderRadius: 2,
@@ -215,10 +282,10 @@ export function RankingView({
                     </Accordion>
                   </CardContent>
                 </Card>
-              </Grid>
+              </Box>
             );
           })}
-        </Grid>
+        </Box>
 
         {totalItems > 0 && (
           <Stack alignItems="center" spacing={2}>
@@ -226,8 +293,11 @@ export function RankingView({
               page={currentPage}
               count={totalPages}
               color="primary"
+              variant="outlined"
               onChange={handlePageChange}
               size="large"
+              showFirstButton
+              showLastButton
             />
             <Typography variant="caption" color="text.secondary">
               Página {currentPage} de {totalPages}
