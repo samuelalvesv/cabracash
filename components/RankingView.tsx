@@ -42,19 +42,6 @@ interface RankingViewProps {
   initialSearch?: string;
 }
 
-const KEY_STATS: Array<{
-  label: string;
-  field: string;
-  format: "percent" | "number" | "decimal";
-}> = [
-  { label: "Expense Ratio", field: "expenseRatio", format: "percent" },
-  { label: "Dividend Yield", field: "dividendYield", format: "percent" },
-  { label: "Sharpe", field: "sharpeRatio", format: "decimal" },
-  { label: "Sortino", field: "sortinoRatio", format: "decimal" },
-  { label: "RSI", field: "rsi", format: "number" },
-  { label: "Δ Top 52s (%)", field: "high52ch", format: "decimal" },
-];
-
 const numberFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0,
 });
@@ -348,48 +335,78 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
                       <Chip label={`Score ${formatScore(scores.final)}`} color="primary" size="medium" />
                     </Stack>
 
-                    <Stack spacing={2} flexGrow={1}>
-                      <Stack spacing={1}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Fundamentos
-                        </Typography>
-                        <LinearProgress variant="determinate" value={scores.fundamentals} />
-                        <Typography variant="caption" color="text.secondary">
-                          {formatScore(scores.fundamentals)}
-                        </Typography>
-                      </Stack>
-
-                      <Stack spacing={1}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Oportunidade
-                        </Typography>
-                        <LinearProgress color="secondary" variant="determinate" value={scores.opportunity} />
-                        <Typography variant="caption" color="text.secondary">
-                          {formatScore(scores.opportunity)}
-                        </Typography>
-                      </Stack>
+                    <Typography variant="subtitle1" fontWeight={600}>
+                      {typeof raw?.name === "string" && raw.name.length > 0 ? raw.name : "Nome indisponível"}
+                    </Typography>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Chip
+                        size="small"
+                        label={typeof raw?.etfCategory === "string" && raw.etfCategory.length > 0 ? raw.etfCategory : "Categoria indefinida"}
+                        color="secondary"
+                        variant="outlined"
+                      />
+                      {typeof raw?.issuer === "string" && raw.issuer.length > 0 && (
+                        <Chip size="small" label={raw.issuer} variant="outlined" />
+                      )}
                     </Stack>
 
-                    <Divider />
-
-                    <Table size="small">
-                      <TableBody>
-                        {KEY_STATS.map(({ label, field, format }) => (
-                          <TableRow key={field}>
-                            <TableCell sx={{ border: 0 }}>
-                              <Typography variant="body2" color="text.secondary">
-                                {label}
-                              </Typography>
-                            </TableCell>
-                            <TableCell align="right" sx={{ border: 0 }}>
-                              <Typography variant="body2" fontWeight={600}>
-                                {formatField(raw[field], format)}
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                    <Stack spacing={2} flexGrow={1}>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                          Fundamentos
+                        </Typography>
+                        <LinearProgress variant="determinate" value={scores.fundamentals} sx={{ mb: 1 }} />
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+                          {formatScore(scores.fundamentals)}
+                        </Typography>
+                        <Table size="small">
+                          <TableBody>
+                            {Object.entries(FUNDAMENTAL_LABELS).map(([key, label]) => (
+                              <TableRow key={key}>
+                                <TableCell sx={{ border: 0 }}>
+                                  <Typography variant="body2" color="text.secondary">
+                                    {label}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell align="right" sx={{ border: 0 }}>
+                                  <Typography variant="body2" fontWeight={600}>
+                                    {formatField(raw?.[key], "decimal")}
+                                  </Typography>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </Box>
+                      <Divider />
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                          Oportunidade
+                        </Typography>
+                        <LinearProgress color="secondary" variant="determinate" value={scores.opportunity} sx={{ mb: 1 }} />
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+                          {formatScore(scores.opportunity)}
+                        </Typography>
+                        <Table size="small">
+                          <TableBody>
+                            {Object.entries(OPPORTUNITY_LABELS).map(([key, label]) => (
+                              <TableRow key={key}>
+                                <TableCell sx={{ border: 0 }}>
+                                  <Typography variant="body2" color="text.secondary">
+                                    {label}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell align="right" sx={{ border: 0 }}>
+                                  <Typography variant="body2" fontWeight={600}>
+                                    {formatField(raw?.[key], "decimal")}
+                                  </Typography>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </Box>
+                    </Stack>
 
                     <Accordion elevation={0}>
                       <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 0 }}>
@@ -443,3 +460,25 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
 }
 
 export default RankingView;
+const FUNDAMENTAL_LABELS: Record<string, string> = {
+  expenseRatio: "Custo",
+  dollarVolume: "Liquidez (log)",
+  issuerScore: "Emissor",
+  sharpeRatio: "Sharpe",
+  sortinoRatio: "Sortino",
+  dividendYield: "Yield",
+  dividendGrowthYears: "Dividendos (anos)",
+  dividendGrowth: "Crescimento Div.",
+  betaDeviation: "Beta (desvio)",
+  atrRatio: "ATR/Preço",
+};
+
+const OPPORTUNITY_LABELS: Record<string, string> = {
+  top52Distance: "Dist. Topo 52",
+  bottom52Distance: "Dist. Fundo 52",
+  movingAverageCombo: "Médias Móveis",
+  rsi: "RSI",
+  relativeVolume: "Volume Rel.",
+  totalReturn1m: "Retorno 1m",
+  intradayChange: "Mov. Intradiário",
+};
