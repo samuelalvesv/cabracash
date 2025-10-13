@@ -258,13 +258,15 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
           value={searchValue}
           onChange={(event) => setSearchValue(event.target.value)}
           placeholder="Pesquisar por nome, código ou categoria"
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
-            sx: { borderRadius: 999 },
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+              sx: { borderRadius: 999 },
+            },
           }}
         />
 

@@ -65,11 +65,3 @@ export function minMaxScale(values: number[], neutralValue = DEFAULT_NEUTRAL_SCO
 
   return values.map((value) => ((value - min) / (max - min)) * 100);
 }
-
-export function toScore(value: number | undefined | null): number {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return DEFAULT_NEUTRAL_SCORE;
-  }
-
-  return Math.max(0, Math.min(100, value));
-}

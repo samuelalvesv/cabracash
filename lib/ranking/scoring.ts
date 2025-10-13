@@ -221,7 +221,7 @@ function pickScaledScore(
   }
 
   const score = featureScores[index];
-  if (typeof score !== "number" || Number.isNaN(score)) {
+  if (score === undefined || Number.isNaN(score)) {
     return 50;
   }
 
