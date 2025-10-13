@@ -276,9 +276,20 @@ export function scoreEtfs(entries: EtfEntry[]): RankedEtf[] {
     .sort((a, b) => b.scores.final - a.scores.final);
 }
 
+const CACHE_TTL_MS = 60_000;
+let cachedRanking: { timestamp: number; data: RankedEtf[] } | null = null;
+
 export async function fetchRankedEtfs(): Promise<RankedEtf[]> {
+  if (cachedRanking && Date.now() - cachedRanking.timestamp < CACHE_TTL_MS) {
+    return cachedRanking.data;
+  }
+
   const response = await fetchMarketData();
   const entries = buildEtfEntries(response.data?.data ?? {});
   const ranked = scoreEtfs(entries);
+  cachedRanking = {
+    timestamp: Date.now(),
+    data: ranked,
+  };
   return ranked;
 }

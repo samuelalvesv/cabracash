@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Accordion,
@@ -14,6 +14,7 @@ import {
   Container,
   Divider,
   IconButton,
+  InputAdornment,
   LinearProgress,
   Pagination,
   Paper,
@@ -22,6 +23,7 @@ import {
   TableBody,
   TableCell,
   TableRow,
+  TextField,
   Tooltip,
   Typography,
   useTheme,
@@ -29,17 +31,16 @@ import {
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
+import SearchIcon from "@mui/icons-material/Search";
 
 import type { RankedEtf } from "@/lib/ranking/types";
 import { useColorMode } from "@/hooks/useColorMode";
 
 interface RankingViewProps {
   items: RankedEtf[];
-  totalItems: number;
-  currentPage: number;
-  totalPages: number;
-  startIndex: number;
-  endIndex: number;
+  pageSize: number;
+  initialPage: number;
+  initialSearch?: string;
 }
 
 const KEY_STATS: Array<{
@@ -88,40 +89,137 @@ function formatScore(score: number) {
   return decimalFormatter.format(score);
 }
 
-export function RankingView({
-  items,
-  totalItems,
-  currentPage,
-  totalPages,
-  startIndex,
-  endIndex,
-}: RankingViewProps) {
+function buildSearchText(item: RankedEtf): string {
+  const strings: string[] = [item.symbol];
+  const raw = item.raw;
+
+  const candidateKeys = [
+    "fundName",
+    "name",
+    "etfCategory",
+    "issuer",
+    "etfIndex",
+    "tags",
+  ];
+
+  candidateKeys.forEach((key) => {
+    const value = raw?.[key];
+    if (typeof value === "string") {
+      strings.push(value);
+    }
+  });
+
+  return strings.join(" ").toLowerCase();
+}
+
+export function RankingView({ items, pageSize, initialPage, initialSearch = "" }: RankingViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const theme = useTheme();
   const { mode, toggleColorMode } = useColorMode();
 
-  const handlePageChange = useCallback(
-    (_: unknown, page: number) => {
-      const params = new URLSearchParams(searchParams?.toString() ?? "");
-      if (page === 1) {
-        params.delete("page");
-      } else {
-        params.set("page", page.toString());
+  const [searchValue, setSearchValue] = useState(initialSearch);
+  const trimmedInitial = initialSearch.trim();
+  const [debouncedValue, setDebouncedValue] = useState(trimmedInitial);
+  const [debouncedQuery, setDebouncedQuery] = useState(trimmedInitial.toLowerCase());
+  const [page, setPage] = useState(initialPage);
+  const previousSearchRef = useRef(trimmedInitial);
+
+  // Sync with URL changes (e.g., back button)
+  useEffect(() => {
+    const urlSearch = (searchParams?.get("search") ?? "").trim();
+    if (urlSearch !== debouncedValue) {
+      setSearchValue(urlSearch);
+      setDebouncedValue(urlSearch);
+      setDebouncedQuery(urlSearch.toLowerCase());
+    }
+    const urlPage = Math.max(1, Number.parseInt(searchParams?.get("page") ?? "1", 10));
+    if (urlPage !== page) {
+      setPage(urlPage);
+    }
+  }, [searchParams, debouncedValue, page]);
+
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      const trimmed = searchValue.trim();
+      setDebouncedValue(trimmed);
+      setDebouncedQuery(trimmed.toLowerCase());
+    }, 250);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchValue]);
+
+  const updateUrl = useCallback(
+    (nextPage: number, nextSearch: string) => {
+      const params = new URLSearchParams();
+      if (nextPage > 1) {
+        params.set("page", nextPage.toString());
       }
-      const query = params.toString();
-      router.push(query ? `/?${query}` : "/", { scroll: false });
+      const trimmedSearch = nextSearch.trim();
+      if (trimmedSearch.length > 0) {
+        params.set("search", trimmedSearch);
+      }
+      const nextQuery = params.toString();
+      const currentQuery = searchParams?.toString() ?? "";
+      if (nextQuery !== currentQuery) {
+        router.replace(nextQuery ? `/?${nextQuery}` : "/", { scroll: false });
+      }
     },
     [router, searchParams],
   );
 
+  // Reset page when search changes and update URL
+  useEffect(() => {
+    if (previousSearchRef.current !== debouncedValue) {
+      previousSearchRef.current = debouncedValue;
+      setPage(1);
+      updateUrl(1, debouncedValue);
+    }
+  }, [debouncedValue, updateUrl]);
+
+  const filteredItems = useMemo(() => {
+    if (!debouncedQuery) {
+      return items;
+    }
+    return items.filter((item) => {
+      const text = buildSearchText(item);
+      return text.includes(debouncedQuery);
+    });
+  }, [items, debouncedQuery]);
+
+  const totalItems = filteredItems.length;
+  const totalPages = totalItems === 0 ? 1 : Math.ceil(totalItems / pageSize);
+  const safePage = Math.min(page, totalPages);
+
+  const pageItems = useMemo(
+    () => filteredItems.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [filteredItems, safePage, pageSize],
+  );
+
+  const startIndex = totalItems === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const endIndex = totalItems === 0 ? 0 : Math.min(safePage * pageSize, totalItems);
+
+  const handlePageChange = useCallback(
+    (_: unknown, newPage: number) => {
+      setPage(newPage);
+      updateUrl(newPage, debouncedValue);
+    },
+    [updateUrl, debouncedValue],
+  );
+
   const helperText = useMemo(() => {
     if (totalItems === 0) {
-      return "Nenhum ETF encontrado para compor o ranking.";
+      return debouncedValue
+        ? `Nenhum ETF encontrado para "${debouncedValue}".`
+        : "Nenhum ETF encontrado para compor o ranking.";
     }
 
-    return `Mostrando ${startIndex}–${endIndex} de ${totalItems} ETFs ranqueados.`;
-  }, [startIndex, endIndex, totalItems]);
+    const totalFormat = new Intl.NumberFormat("pt-BR").format(totalItems);
+    return `Mostrando ${startIndex}–${endIndex} de ${totalFormat} ETFs ranqueados.`;
+  }, [debouncedValue, endIndex, startIndex, totalItems]);
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 } }}>
@@ -155,12 +253,27 @@ export function RankingView({
           </Stack>
         </Stack>
 
+        <TextField
+          fullWidth
+          value={searchValue}
+          onChange={(event) => setSearchValue(event.target.value)}
+          placeholder="Pesquisar por nome, código ou categoria"
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
+            sx: { borderRadius: 999 },
+          }}
+        />
+
         <Alert severity={totalItems === 0 ? "warning" : "info"}>{helperText}</Alert>
 
         {totalPages > 1 && (
           <Stack alignItems="center">
             <Pagination
-              page={currentPage}
+              page={safePage}
               count={totalPages}
               color="primary"
               variant="outlined"
@@ -184,9 +297,10 @@ export function RankingView({
             },
           }}
         >
-          {items.map((item, idx) => {
+          {pageItems.map((item, idx) => {
             const position = startIndex + idx;
             const { scores, raw } = item;
+            const rawJson = JSON.stringify(raw, null, 2);
 
             return (
               <Box key={item.symbol} sx={{ display: "flex", width: "100%" }}>
@@ -276,7 +390,7 @@ export function RankingView({
                             fontSize: 12,
                           }}
                         >
-                          {JSON.stringify(raw, null, 2)}
+                          {rawJson}
                         </Box>
                       </AccordionDetails>
                     </Accordion>
@@ -287,10 +401,10 @@ export function RankingView({
           })}
         </Box>
 
-        {totalItems > 0 && (
+        {totalItems > 0 && totalPages > 1 && (
           <Stack alignItems="center" spacing={2}>
             <Pagination
-              page={currentPage}
+              page={safePage}
               count={totalPages}
               color="primary"
               variant="outlined"
@@ -300,7 +414,7 @@ export function RankingView({
               showLastButton
             />
             <Typography variant="caption" color="text.secondary">
-              Página {currentPage} de {totalPages}
+              Página {safePage} de {totalPages}
             </Typography>
           </Stack>
         )}

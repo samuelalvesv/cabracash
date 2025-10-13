@@ -1,47 +1,31 @@
 import RankingView from "@/components/RankingView";
 import { fetchRankedEtfs } from "@/lib/ranking/scoring";
 
-const PAGE_SIZE = 12;
-
 interface PageProps {
   searchParams?: Record<string, string | string[] | undefined>;
 }
 
-function getPageNumber(rawPage: string | string[] | undefined): number {
-  if (!rawPage) {
-    return 1;
+function extractParam(value: string | string[] | undefined): string | undefined {
+  if (!value) {
+    return undefined;
   }
-
-  const value = Array.isArray(rawPage) ? rawPage[0] : rawPage;
-  const parsed = Number.parseInt(value, 10);
-
-  if (Number.isNaN(parsed) || parsed < 1) {
-    return 1;
-  }
-
-  return parsed;
+  return Array.isArray(value) ? value[0] : value;
 }
+
+function normalizePage(value: string | undefined): number {
+  if (!value) {
+    return 1;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isNaN(parsed) || parsed < 1 ? 1 : parsed;
+}
+
+const PAGE_SIZE = 12;
 
 export default async function Home({ searchParams }: PageProps) {
   const rankedEtfs = await fetchRankedEtfs();
+  const initialPage = normalizePage(extractParam(searchParams?.page));
+  const initialSearch = extractParam(searchParams?.search) ?? "";
 
-  const totalItems = rankedEtfs.length;
-  const totalPages = totalItems > 0 ? Math.ceil(totalItems / PAGE_SIZE) : 1;
-  const currentPage = Math.min(getPageNumber(searchParams?.page), totalPages);
-
-  const startIndex = totalItems === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
-  const endIndex = totalItems === 0 ? 0 : Math.min(currentPage * PAGE_SIZE, totalItems);
-
-  const items = rankedEtfs.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-
-  return (
-    <RankingView
-      items={items}
-      totalItems={totalItems}
-      currentPage={currentPage}
-      totalPages={totalPages}
-      startIndex={startIndex}
-      endIndex={endIndex}
-    />
-  );
+  return <RankingView items={rankedEtfs} pageSize={PAGE_SIZE} initialPage={initialPage} initialSearch={initialSearch} />;
 }
