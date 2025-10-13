@@ -18,6 +18,22 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## Market Data Endpoint
+
+- `GET /api/market`: proxy para o endpoint da StockAnalysis que retorna o payload completo de ETFs no formato:
+  ```json
+  {
+    "status": 200,
+    "data": {
+      "data": {
+        "AOK": { "...": "..." },
+        "SPY": { "...": "..." }
+      }
+    }
+  }
+  ```
+- A página principal (`app/page.tsx`) consome essa rota e exibe um painel com os principais indicadores dos primeiros ativos retornados, além de disponibilizar o JSON bruto para inspeção rápida.
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More
