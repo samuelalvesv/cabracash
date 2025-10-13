@@ -16,9 +16,9 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+You can start editing the page by modifying `app/page.tsx`. A página já usa [MUI](https://mui.com/) com um `ThemeProvider` configurado em `app/layout.tsx` e exibe o ranking paginado calculado no backend.
 
-## Market Data Endpoint
+## APIs internas
 
 - `GET /api/market`: proxy para o endpoint da StockAnalysis que retorna o payload completo de ETFs no formato:
   ```json
@@ -32,7 +32,15 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
     }
   }
   ```
-- A página principal (`app/page.tsx`) consome essa rota, exibe um painel paginado (12 itens por vez) com indicadores dos ETFs e disponibiliza o JSON bruto para inspeção rápida.
+- `GET /api/market/ranking`: processa os dados brutos, aplica a metodologia descrita em `etf_ranking.md` (winsorização 2–98%, normalização 0–100, pesos de Fundamentos e Oportunidade) e devolve a lista ordenada por `FinalScore`.
+
+## Scripts úteis
+
+```bash
+npm run dev    # servidor Next.js (Turbopack)
+npm run lint   # ESLint
+npm run test   # Vitest (pipeline de ranking)
+```
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
