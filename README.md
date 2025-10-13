@@ -32,7 +32,7 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
     }
   }
   ```
-- A página principal (`app/page.tsx`) consome essa rota e exibe um painel com os principais indicadores dos primeiros ativos retornados, além de disponibilizar o JSON bruto para inspeção rápida.
+- A página principal (`app/page.tsx`) consome essa rota, exibe um painel paginado (12 itens por vez) com indicadores dos ETFs e disponibiliza o JSON bruto para inspeção rápida.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 

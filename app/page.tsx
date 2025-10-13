@@ -1,5 +1,9 @@
+import Link from "next/link";
+
 import { fetchMarketData, type MarketApiResponse } from "@/lib/marketData";
 import styles from "./page.module.css";
+
+const PAGE_SIZE = 12;
 
 const METRIC_FIELDS: Array<{ key: string; label: string }> = [
   { key: "open", label: "Abertura" },
@@ -56,10 +60,37 @@ function formatValue(value: MetricValue): string {
   return value;
 }
 
-export default async function Home() {
+interface PageProps {
+  searchParams?: Record<string, string | string[] | undefined>;
+}
+
+function getPageNumber(rawPage: string | string[] | undefined): number {
+  if (!rawPage) {
+    return 1;
+  }
+
+  const value = Array.isArray(rawPage) ? rawPage[0] : rawPage;
+  const parsed = Number.parseInt(value, 10);
+
+  if (Number.isNaN(parsed) || parsed < 1) {
+    return 1;
+  }
+
+  return parsed;
+}
+
+export default async function Home({ searchParams }: PageProps) {
   const marketResponse = await fetchMarketData();
   const entries = Object.entries(marketResponse.data?.data ?? {});
-  const visibleEntries = entries.slice(0, 12);
+  const totalItems = entries.length;
+  const totalPages = totalItems > 0 ? Math.ceil(totalItems / PAGE_SIZE) : 1;
+  const currentPage = Math.min(getPageNumber(searchParams?.page), totalPages);
+  const startIndex = totalItems === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const endIndex = totalItems === 0 ? 0 : Math.min(currentPage * PAGE_SIZE, totalItems);
+  const visibleEntries = entries.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  const hasPrevious = currentPage > 1;
+  const hasNext = currentPage < totalPages;
 
   return (
     <div className={styles.page}>
@@ -74,10 +105,13 @@ export default async function Home() {
           <span className={styles.badge}>Status: {marketResponse.status}</span>
         </header>
 
-        <p className={styles.helper}>
-          Mostrando {visibleEntries.length} de {entries.length} ativos disponíveis. Ajuste a seleção conforme
-          necessário.
-        </p>
+        {totalItems > 0 ? (
+          <p className={styles.helper}>
+            Mostrando {startIndex}–{endIndex} de {totalItems} ativos disponíveis.
+          </p>
+        ) : (
+          <p className={styles.helper}>Nenhum ativo disponível no momento.</p>
+        )}
 
         <div className={styles.grid}>
           {visibleEntries.map(([symbol, metrics]) => (
@@ -118,6 +152,32 @@ export default async function Home() {
           <summary>Ver resposta bruta</summary>
           <pre>{JSON.stringify(marketResponse, null, 2)}</pre>
         </details>
+
+        {totalItems > 0 && (
+          <nav className={styles.pagination} aria-label="Paginação de ETFs">
+            <Link
+              className={`${styles.paginationButton} ${!hasPrevious ? styles.paginationButtonDisabled : ""}`}
+              aria-disabled={!hasPrevious}
+              tabIndex={hasPrevious ? undefined : -1}
+              href={hasPrevious ? (currentPage - 1 === 1 ? "/" : `?page=${currentPage - 1}`) : "/"}
+              prefetch={false}
+            >
+              Anterior
+            </Link>
+            <span className={styles.paginationStatus}>
+              Página {currentPage} de {totalPages}
+            </span>
+            <Link
+              className={`${styles.paginationButton} ${!hasNext ? styles.paginationButtonDisabled : ""}`}
+              aria-disabled={!hasNext}
+              tabIndex={hasNext ? undefined : -1}
+              href={hasNext ? `?page=${currentPage + 1}` : `/`}
+              prefetch={false}
+            >
+              Próxima
+            </Link>
+          </nav>
+        )}
       </main>
     </div>
   );
