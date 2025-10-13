@@ -2,13 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Alert,
   Box,
   Card,
   CardContent,
+  CardActionArea,
   Chip,
   Container,
   Divider,
@@ -25,14 +23,15 @@ import {
   TextField,
   Tooltip,
   Typography,
-  useTheme,
 } from "@mui/material";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import SearchIcon from "@mui/icons-material/Search";
+import Link from "next/link";
 
 import type { RankedEtf } from "@/lib/ranking/types";
+import { formatMetric, formatScore } from "@/lib/formatters";
+import { FUNDAMENTAL_DEFINITIONS, OPPORTUNITY_DEFINITIONS } from "@/lib/ranking/metricDefinitions";
 import { useColorMode } from "@/hooks/useColorMode";
 
 interface RankingViewProps {
@@ -40,49 +39,6 @@ interface RankingViewProps {
   pageSize: number;
   initialPage: number;
   initialSearch?: string;
-}
-
-const numberFormatter = new Intl.NumberFormat("en-US", {
-  maximumFractionDigits: 0,
-});
-
-const decimalFormatter = new Intl.NumberFormat("en-US", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-const percentFormatter = new Intl.NumberFormat("en-US", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-type MetricFormat = "percent" | "number" | "decimal";
-
-function formatMetricValue(value: number | string | null | undefined, format: MetricFormat = "decimal") {
-  if (value === null || value === undefined) {
-    return "—";
-  }
-
-  if (typeof value === "string") {
-    return value;
-  }
-
-  if (Number.isNaN(value)) {
-    return "—";
-  }
-
-  switch (format) {
-    case "percent":
-      return `${percentFormatter.format(value)}%`;
-    case "number":
-      return numberFormatter.format(value);
-    default:
-      return decimalFormatter.format(value);
-  }
-}
-
-function formatScore(score: number) {
-  return decimalFormatter.format(score);
 }
 
 function buildSearchText(item: RankedEtf): string {
@@ -109,7 +65,6 @@ function buildSearchText(item: RankedEtf): string {
 }
 
 export function RankingView({ items, pageSize, initialPage, initialSearch = "" }: RankingViewProps) {
-  const theme = useTheme();
   const { mode, toggleColorMode } = useColorMode();
 
   const [searchValue, setSearchValue] = useState(initialSearch);
@@ -316,8 +271,6 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
           {pageItems.map((item, idx) => {
             const position = startIndex + idx;
             const { scores, raw } = item;
-            const rawJson = JSON.stringify(raw, null, 2);
-
             return (
               <Box key={item.symbol} sx={{ display: "flex", width: "100%" }}>
                 <Card
@@ -330,14 +283,25 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
                     height: "100%",
                   }}
                 >
-                  <CardContent
+                  <CardActionArea
+                    component={Link}
+                    href={`/etf/${item.symbol}`}
                     sx={{
                       display: "flex",
                       flexDirection: "column",
-                      gap: 3,
                       flexGrow: 1,
+                      alignItems: "stretch",
+                      height: "100%",
                     }}
                   >
+                    <CardContent
+                      sx={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 3,
+                        flexGrow: 1,
+                      }}
+                    >
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                       <Typography variant="h5" fontWeight={700}>
                         #{position} • {item.symbol}
@@ -371,7 +335,7 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
                         </Typography>
                         <Table size="small">
                           <TableBody>
-                            {FUNDAMENTAL_CONFIG.map(({ key, label, getValue, format }) => (
+                            {FUNDAMENTAL_DEFINITIONS.map(({ key, label, getter, format }) => (
                               <TableRow key={key}>
                                 <TableCell sx={{ border: 0 }}>
                                   <Typography variant="body2" color="text.secondary">
@@ -380,7 +344,7 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
                                 </TableCell>
                                 <TableCell align="right" sx={{ border: 0 }}>
                                   <Typography variant="body2" fontWeight={600}>
-                                    {formatMetricValue(getValue(item), format)}
+                                    {formatMetric(getter(item), format)}
                                   </Typography>
                                 </TableCell>
                               </TableRow>
@@ -399,7 +363,7 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
                         </Typography>
                         <Table size="small">
                           <TableBody>
-                            {OPPORTUNITY_CONFIG.map(({ key, label, getValue, format }) => (
+                            {OPPORTUNITY_DEFINITIONS.map(({ key, label, getter, format }) => (
                               <TableRow key={key}>
                                 <TableCell sx={{ border: 0 }}>
                                   <Typography variant="body2" color="text.secondary">
@@ -408,7 +372,7 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
                                 </TableCell>
                                 <TableCell align="right" sx={{ border: 0 }}>
                                   <Typography variant="body2" fontWeight={600}>
-                                    {formatMetricValue(getValue(item), format)}
+                                    {formatMetric(getter(item), format)}
                                   </Typography>
                                 </TableCell>
                               </TableRow>
@@ -418,31 +382,10 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
                       </Box>
                     </Stack>
 
-                    <Accordion elevation={0}>
-                      <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 0 }}>
-                        <Typography variant="body2" fontWeight={600}>
-                          Ver dados brutos
-                        </Typography>
-                      </AccordionSummary>
-                      <AccordionDetails sx={{ px: 0 }}>
-                        <Box
-                          component="pre"
-                          sx={{
-                            bgcolor: theme.palette.mode === "dark" ? "#0f172a" : "grey.900",
-                            color: "grey.100",
-                            p: 2,
-                            borderRadius: 2,
-                            overflowX: "auto",
-                            fontSize: 12,
-                          }}
-                        >
-                          {rawJson}
-                        </Box>
-                      </AccordionDetails>
-                    </Accordion>
                   </CardContent>
-                </Card>
-              </Box>
+                </CardActionArea>
+              </Card>
+            </Box>
             );
           })}
         </Box>
@@ -470,32 +413,3 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
 }
 
 export default RankingView;
-type MetricConfig = {
-  key: string;
-  label: string;
-  format?: MetricFormat;
-  getValue: (item: RankedEtf) => number | string | null | undefined;
-};
-
-const FUNDAMENTAL_CONFIG: MetricConfig[] = [
-  { key: "expenseRatio", label: "Custo", format: "percent", getValue: (item) => item.raw.expenseRatio as number | null | undefined },
-  { key: "dollarVolume", label: "Liquidez (log)", getValue: (item) => item.features.dollarVolume },
-  { key: "issuerScore", label: "Emissor (score)", getValue: (item) => item.features.issuerScore },
-  { key: "sharpeRatio", label: "Sharpe", getValue: (item) => item.raw.sharpeRatio as number | null | undefined },
-  { key: "sortinoRatio", label: "Sortino", getValue: (item) => item.raw.sortinoRatio as number | null | undefined },
-  { key: "dividendYield", label: "Yield", format: "percent", getValue: (item) => item.raw.dividendYield as number | null | undefined },
-  { key: "dividendGrowthYears", label: "Dividendos (anos)", format: "number", getValue: (item) => item.raw.dividendGrowthYears as number | null | undefined },
-  { key: "dividendGrowth", label: "Crescimento Div.", getValue: (item) => item.raw.dividendGrowth as number | null | undefined },
-  { key: "betaDeviation", label: "Beta (desvio)", getValue: (item) => item.features.betaDeviation },
-  { key: "atrRatio", label: "ATR/Preço", getValue: (item) => item.features.atrRatio },
-];
-
-const OPPORTUNITY_CONFIG: MetricConfig[] = [
-  { key: "top52Distance", label: "Dist. Topo 52", getValue: (item) => item.features.top52Distance },
-  { key: "bottom52Distance", label: "Dist. Fundo 52", getValue: (item) => item.features.bottom52Distance },
-  { key: "movingAverageCombo", label: "Médias Móveis", getValue: (item) => item.features.movingAverageCombo },
-  { key: "rsi", label: "RSI", getValue: (item) => item.raw.rsi as number | null | undefined, format: "decimal" },
-  { key: "relativeVolume", label: "Volume Rel.", getValue: (item) => item.raw.relativeVolume as number | null | undefined },
-  { key: "totalReturn1m", label: "Retorno 1m", getValue: (item) => item.raw.tr1m as number | null | undefined },
-  { key: "intradayChange", label: "Mov. Intradiário", getValue: (item) => item.raw.changeFromOpen as number | null | undefined },
-];
