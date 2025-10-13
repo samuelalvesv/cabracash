@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import {
   Accordion,
   AccordionDetails,
@@ -113,8 +112,6 @@ function buildSearchText(item: RankedEtf): string {
 }
 
 export function RankingView({ items, pageSize, initialPage, initialSearch = "" }: RankingViewProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const theme = useTheme();
   const { mode, toggleColorMode } = useColorMode();
 
@@ -124,20 +121,32 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
   const [debouncedQuery, setDebouncedQuery] = useState(trimmedInitial.toLowerCase());
   const [page, setPage] = useState(initialPage);
   const previousSearchRef = useRef(trimmedInitial);
+  const pathnameRef = useRef<string>("");
 
-  // Sync with URL changes (e.g., back button)
   useEffect(() => {
-    const urlSearch = (searchParams?.get("search") ?? "").trim();
-    if (urlSearch !== debouncedValue) {
-      setSearchValue(urlSearch);
-      setDebouncedValue(urlSearch);
-      setDebouncedQuery(urlSearch.toLowerCase());
+    if (typeof window === "undefined") {
+      return undefined;
     }
-    const urlPage = Math.max(1, Number.parseInt(searchParams?.get("page") ?? "1", 10));
-    if (urlPage !== page) {
-      setPage(urlPage);
-    }
-  }, [searchParams, debouncedValue, page]);
+
+    pathnameRef.current = window.location.pathname;
+
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const nextSearch = (params.get("search") ?? "").trim();
+      setSearchValue(nextSearch);
+      setDebouncedValue(nextSearch);
+      setDebouncedQuery(nextSearch.toLowerCase());
+      previousSearchRef.current = nextSearch;
+
+      const nextPage = Math.max(1, Number.parseInt(params.get("page") ?? "1", 10));
+      setPage(nextPage);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
 
   // Debounce search input
   useEffect(() => {
@@ -152,24 +161,32 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
     };
   }, [searchValue]);
 
-  const updateUrl = useCallback(
-    (nextPage: number, nextSearch: string) => {
-      const params = new URLSearchParams();
-      if (nextPage > 1) {
-        params.set("page", nextPage.toString());
-      }
-      const trimmedSearch = nextSearch.trim();
-      if (trimmedSearch.length > 0) {
-        params.set("search", trimmedSearch);
-      }
-      const nextQuery = params.toString();
-      const currentQuery = searchParams?.toString() ?? "";
-      if (nextQuery !== currentQuery) {
-        router.replace(nextQuery ? `/?${nextQuery}` : "/", { scroll: false });
-      }
-    },
-    [router, searchParams],
-  );
+  const updateUrl = useCallback((nextPage: number, nextSearch: string) => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+
+    if (nextPage > 1) {
+      params.set("page", nextPage.toString());
+    } else {
+      params.delete("page");
+    }
+
+    const trimmedSearch = nextSearch.trim();
+    if (trimmedSearch.length > 0) {
+      params.set("search", trimmedSearch);
+    } else {
+      params.delete("search");
+    }
+
+    const nextQuery = params.toString();
+    const basePath = pathnameRef.current || window.location.pathname;
+    const nextUrl = nextQuery.length > 0 ? `${basePath}?${nextQuery}` : basePath;
+
+    window.history.replaceState(null, "", nextUrl);
+  }, []);
 
   // Reset page when search changes and update URL
   useEffect(() => {
