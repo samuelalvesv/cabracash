@@ -3,7 +3,8 @@ import { fileURLToPath } from "url";
 
 export default defineConfig({
   test: {
-    environment: "node",
+    environment: "jsdom",
+    setupFiles: ["./vitest.setup.ts"],
     coverage: {
       reporter: ["text", "html"],
     },

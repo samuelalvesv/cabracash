@@ -1,9 +1,9 @@
 "use client";
 
+import React, { createContext, useCallback, useEffect, useMemo, useState } from "react";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v14-appRouter";
 import { CssBaseline, GlobalStyles, useMediaQuery } from "@mui/material";
 import type { PaletteMode } from "@mui/material";
-import { createContext, useCallback, useEffect, useMemo, useState } from "react";
 import { ThemeProvider } from "@mui/material/styles";
 import type { PropsWithChildren } from "react";
 

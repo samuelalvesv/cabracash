@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { scoreEtfs } from "@/lib/ranking/scoring";
+import { findEmptyIndicators } from "@/lib/ranking/validation";
 import type { EtfEntry } from "@/lib/ranking/types";
 
 const baseMetrics = {
@@ -126,5 +127,12 @@ describe("scoreEtfs", () => {
     expect(lowDataEtf).toBeDefined();
     expect(lowDataEtf?.scores.final).toBeGreaterThan(0);
     expect(lowDataEtf?.scores.final).toBeLessThanOrEqual(100);
+  });
+});
+
+describe("findEmptyIndicators", () => {
+  it("detecta indicadores sempre nulos", async () => {
+    const failing = await findEmptyIndicators();
+    expect(failing).toEqual([]);
   });
 });
