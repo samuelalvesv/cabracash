@@ -12,7 +12,6 @@ import {
   CardContent,
   Chip,
   Container,
-  Grid,
   LinearProgress,
   Paper,
   Stack,
@@ -297,112 +296,120 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
           </Stack>
         </Stack>
 
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={4}>
-            <Paper variant="outlined" sx={{ p: 3, height: "100%" }}>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Score Final
-              </Typography>
-              <Typography variant="h3" fontWeight={700}>
-                {formatScore(etf.scores.final)}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Média ponderada de Fundamentos e Oportunidade.
-              </Typography>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Paper variant="outlined" sx={{ p: 3, height: "100%" }}>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Fundamentos
-              </Typography>
-              <Typography variant="h4" fontWeight={700}>
-                {formatScore(etf.scores.fundamentals)}
-              </Typography>
-              <LinearProgress variant="determinate" value={etf.scores.fundamentals} sx={{ mt: 2 }} />
-            </Paper>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Paper variant="outlined" sx={{ p: 3, height: "100%" }}>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Oportunidade
-              </Typography>
-              <Typography variant="h4" fontWeight={700}>
-                {formatScore(etf.scores.opportunity)}
-              </Typography>
-              <LinearProgress color="secondary" variant="determinate" value={etf.scores.opportunity} sx={{ mt: 2 }} />
-            </Paper>
-          </Grid>
-        </Grid>
+        <Box
+          sx={{
+            display: "grid",
+            gap: 3,
+            gridTemplateColumns: {
+              xs: "minmax(0, 1fr)",
+              md: "repeat(3, minmax(0, 1fr))",
+            },
+          }}
+        >
+          <Paper variant="outlined" sx={{ p: 3, height: "100%" }}>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Score Final
+            </Typography>
+            <Typography variant="h3" fontWeight={700}>
+              {formatScore(etf.scores.final)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Média ponderada de Fundamentos e Oportunidade.
+            </Typography>
+          </Paper>
+          <Paper variant="outlined" sx={{ p: 3, height: "100%" }}>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Fundamentos
+            </Typography>
+            <Typography variant="h4" fontWeight={700}>
+              {formatScore(etf.scores.fundamentals)}
+            </Typography>
+            <LinearProgress variant="determinate" value={etf.scores.fundamentals} sx={{ mt: 2 }} />
+          </Paper>
+          <Paper variant="outlined" sx={{ p: 3, height: "100%" }}>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Oportunidade
+            </Typography>
+            <Typography variant="h4" fontWeight={700}>
+              {formatScore(etf.scores.opportunity)}
+            </Typography>
+            <LinearProgress color="secondary" variant="determinate" value={etf.scores.opportunity} sx={{ mt: 2 }} />
+          </Paper>
+        </Box>
 
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <Card variant="outlined">
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Componentes de Fundamentos
-                </Typography>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Indicador</TableCell>
-                      <TableCell align="right">Valor</TableCell>
-                      <TableCell align="right">Score</TableCell>
+        <Box
+          sx={{
+            display: "grid",
+            gap: 3,
+            gridTemplateColumns: {
+              xs: "minmax(0, 1fr)",
+              md: "repeat(2, minmax(0, 1fr))",
+            },
+          }}
+        >
+          <Card variant="outlined">
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Componentes de Fundamentos
+              </Typography>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Indicador</TableCell>
+                    <TableCell align="right">Valor</TableCell>
+                    <TableCell align="right">Score</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {fundamentalsBreakdown.map((item) => (
+                    <TableRow key={item.key}>
+                      <TableCell>{item.label}</TableCell>
+                      <TableCell align="right">{renderDetailValue({ label: item.label, value: item.value, format: item.format })}</TableCell>
+                      <TableCell align="right">
+                        <Tooltip title={`Peso ${item.weight ?? 0}`}>
+                          <Typography variant="body2" fontWeight={600} component="span">
+                            {formatScore(item.score)}
+                          </Typography>
+                        </Tooltip>
+                      </TableCell>
                     </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {fundamentalsBreakdown.map((item) => (
-                      <TableRow key={item.key}>
-                        <TableCell>{item.label}</TableCell>
-                        <TableCell align="right">{renderDetailValue({ label: item.label, value: item.value, format: item.format })}</TableCell>
-                        <TableCell align="right">
-                          <Tooltip title={`Peso ${item.weight ?? 0}`}>
-                            <Typography variant="body2" fontWeight={600} component="span">
-                              {formatScore(item.score)}
-                            </Typography>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Card variant="outlined">
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Componentes de Oportunidade
-                </Typography>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Indicador</TableCell>
-                      <TableCell align="right">Valor</TableCell>
-                      <TableCell align="right">Score</TableCell>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+          <Card variant="outlined">
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Componentes de Oportunidade
+              </Typography>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Indicador</TableCell>
+                    <TableCell align="right">Valor</TableCell>
+                    <TableCell align="right">Score</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {opportunityBreakdown.map((item) => (
+                    <TableRow key={item.key}>
+                      <TableCell>{item.label}</TableCell>
+                      <TableCell align="right">{renderDetailValue({ label: item.label, value: item.value, format: item.format })}</TableCell>
+                      <TableCell align="right">
+                        <Tooltip title={`Peso ${item.weight ?? 0}`}>
+                          <Typography variant="body2" fontWeight={600} component="span">
+                            {formatScore(item.score)}
+                          </Typography>
+                        </Tooltip>
+                      </TableCell>
                     </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {opportunityBreakdown.map((item) => (
-                      <TableRow key={item.key}>
-                        <TableCell>{item.label}</TableCell>
-                        <TableCell align="right">{renderDetailValue({ label: item.label, value: item.value, format: item.format })}</TableCell>
-                        <TableCell align="right">
-                          <Tooltip title={`Peso ${item.weight ?? 0}`}>
-                            <Typography variant="body2" fontWeight={600} component="span">
-                              {formatScore(item.score)}
-                            </Typography>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </Box>
 
         {detailSections.map((section) => (
           <Accordion key={section.title} defaultExpanded disableGutters>

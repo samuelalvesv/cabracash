@@ -65,7 +65,7 @@ function buildEtf(symbol: string): RankedEtf {
     inceptionDate: "2010-01-01",
     cusip: "123456789",
     isin: "US1234567890",
-    tags: ["global", "allocation"],
+    tags: "global, allocation",
     assets: 700_000_000,
     holdings: 150,
     price: 60,
