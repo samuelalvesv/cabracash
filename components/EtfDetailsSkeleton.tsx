@@ -13,7 +13,11 @@ function SummaryCard() {
   );
 }
 
-function BreakdownCard(titleWidth: number = 160) {
+interface BreakdownCardProps {
+  titleWidth?: number;
+}
+
+function BreakdownCard({ titleWidth = 160 }: BreakdownCardProps) {
   return (
     <Card variant="outlined">
       <CardContent>
