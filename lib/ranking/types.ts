@@ -8,6 +8,9 @@ export interface EtfEntry {
 export interface FeatureSet {
   expenseRatio: number | null;
   dollarVolume: number | null;
+  volumeLog: number | null;
+  holdings: number | null;
+  assetsLog: number | null;
   issuerScore: number | null;
   sharpeRatio: number | null;
   sortinoRatio: number | null;
@@ -16,13 +19,15 @@ export interface FeatureSet {
   dividendGrowth: number | null;
   betaDeviation: number | null;
   atrRatio: number | null;
+  ch1d: number | null;
   top52Distance: number | null;
   bottom52Distance: number | null;
   movingAverageCombo: number | null;
   rsi: number | null;
   relativeVolume: number | null;
   totalReturn1m: number | null;
-  intradayChange: number | null;
+  premarketChangePercent: number | null;
+  afterHoursChangePercent: number | null;
 }
 
 export interface ScaledFeatureSet {

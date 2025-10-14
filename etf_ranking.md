@@ -6,24 +6,38 @@ Mark (especialista em ETFs dos EUA) propõe a seguir um método unificado para c
 
 ## 1. Indicadores utilizados (PT-BR ⇄ JSON ⇄ Notas)
 
-| Indicador (PT-BR)                     | Campo no JSON                         | Observação para a pontuação                                    |
-| ------------------------------------- | ------------------------------------- | -------------------------------------------------------------- |
-| Custo total anual                     | `expenseRatio`                        | Menor é melhor (invertido)                                     |
-| Liquidez diária (US$)                 | `dollarVolume`                        | Escala log10 para reduzir outliers                             |
-| Qualidade do emissor                  | `issuer`                              | Nota pré-definida por emissor (cartilha ajustável)             |
-| Eficiência de retorno                 | `sharpeRatio`, `sortinoRatio`         | Maior é melhor                                                 |
-| Perfil de renda                       | `dividendYield`, `dividendGrowthYears`| Yield e consistência de crescimento                            |
-| Beta vs mercado                       | `beta`                                | Quanto mais próximo de 1, melhor (menor desvio)                |
-| Volatilidade diária normalizada       | `atr` / `close`                       | Menor = melhor (estabilidade de preço)                         |
-| Distância ao topo de 52 semanas       | `high52ch`                            | Valores negativos indicam desconto; invertido                  |
-| Distância ao fundo de 52 semanas      | `low52ch`                             | Valores pequenos indicam proximidade do piso; invertido        |
-| Desvio das médias móveis              | `ma20ch`, `ma50ch`, `ma200ch`         | Média dos três; valores muito positivos indicam sobrecompra    |
-| RSI diário                            | `rsi`                                 | RSI baixo = sobrevendido; invertido                            |
-| Fluxo anormal de volume               | `relativeVolume`                      | Usamos `log1p(relativeVolume)`                                 |
-| Momentum recente                      | `tr1m`                                | Total return 1 mês; maior é melhor                             |
-| Variação intradiária                  | `changeFromOpen`                      | Captura reação do mercado no dia                               |
+Os campos abaixo vêm direto do endpoint da StockAnalysis. Alguns são usados no ranking; os demais aparecem na página de detalhes para contexto.
 
-> Se algum campo não estiver presente para um ETF, atribuímos uma nota neutra (50) após a normalização para não distorcer o ranking.
+### Fundamentos (utilizados na pontuação)
+
+| Indicador (PT-BR)          | Campo no JSON            | Observação |
+| -------------------------- | ------------------------ | ---------- |
+| Custo total anual          | `expenseRatio`           | Menor é melhor (invertido) |
+| Liquidez financeira        | `dollarVolume`           | Escala log10; profundidade em dólares |
+| Liquidez em cotas          | `volume`                 | Escala log10; facilidade para ordens |
+| Diversificação (holdings)  | `holdings` / `holdingsCount` | Mais holdings ⇒ carteira menos concentrada |
+| Patrimônio sob gestão      | `assets`                 | Escala log10; ETFs muito pequenos recebem penalização |
+| Qualidade do emissor       | `issuer`                 | Nota qualitativa, depois normalizada |
+| Sharpe / Sortino           | `sharpeRatio`, `sortinoRatio` | Eficiência de retorno |
+| Perfil de renda            | `dividendYield`, `dividendGrowthYears`, `dividendGrowth` | Yield e consistência |
+| Beta vs mercado            | `beta`                   | Desvio em relação a 1 |
+| Volatilidade relativa      | `atr` + `close`          | ATR proporcional ao preço |
+
+### Oportunidade (utilizados na pontuação)
+
+| Indicador (PT-BR)          | Campo no JSON                         | Observação |
+| -------------------------- | ------------------------------------- | ---------- |
+| Variação diária            | `ch1d`                                | Capta momentum intradiário |
+| Distância ao topo 52s     | `high52ch`                            | Valores negativos ⇒ desconto (invertido) |
+| Distância ao fundo 52s    | `low52ch`                             | Valores pequenos ⇒ perto do piso (invertido) |
+| Médias móveis             | `ma20ch`, `ma50ch`, `ma150ch`, `ma200ch` | Média das quatro curvas |
+| RSI diário                | `rsi`                                 | RSI baixo ⇒ sobrevendido |
+| Volume relativo           | `relativeVolume`                      | `log1p(relativeVolume)` |
+| Retorno 1m                | `tr1m`                                | Total return curto |
+| Pré-market                | `premarketChangePercent`              | Expectativa antes da abertura |
+| After-hours               | `afterHoursChangePercent` / `postmarketChangePercent` | Movimento pós-fechamento |
+
+> Métricas ausentes recebem nota neutra (50) após a normalização para não distorcer a pontuação.
 
 ---
 
@@ -58,31 +72,37 @@ score(x) = 100 * (x' - min_trimmed) / (max_trimmed - min_trimmed)
 
 **Peso total: 100.**
 
-| Componente                          | Símbolo         | Peso | Observação |
-| ----------------------------------- | --------------- | ---- | ---------- |
-| Eficiência de custo                 | `S_custo`       | 20%  | `expenseRatio` invertido             |
-| Profundidade de liquidez            | `S_liq`         | 15%  | `log10(dollarVolume)`               |
-| Qualidade do emissor                | `S_emissor`     | 10%  | Nota cartorial + normalização       |
-| Sharpe ratio                        | `S_sharpe`      | 20%  | Retorno por unidade de risco        |
-| Sortino ratio                       | `S_sortino`     | 10%  | Penaliza downside                   |
-| Yield corrente                      | `S_yield`       | 10%  | `dividendYield`                     |
-| Consistência de dividendos          | `S_divyears`    | 5%   | `dividendGrowthYears`               |
-| Beta balanceado                     | `S_beta`        | 5%   | Inverte `beta_dev` (quanto mais próximo de 1, melhor) |
-| Volatilidade controlada             | `S_atr`         | 5%   | Inverte `atr_ratio`                 |
-| Estabilidade de distribuição        | `S_divgrowth`   | 5%   | `dividendGrowth` (se disponível)    |
+| Componente                      | Símbolo           | Peso | Observação |
+| ------------------------------- | ----------------- | ---- | ---------- |
+| Eficiência de custo             | `S_custo`         | 15%  | `expenseRatio` invertido |
+| Liquidez financeira             | `S_liq_dollar`    | 12%  | `log10(dollarVolume)` |
+| Liquidez em cotas               | `S_liq_volume`    | 8%   | `log10(volume)` |
+| Diversificação (holdings)       | `S_holdings`      | 10%  | `holdings` / `holdingsCount` |
+| Patrimônio sob gestão           | `S_assets`        | 5%   | `log10(assets)` |
+| Qualidade do emissor            | `S_emissor`       | 10%  | Nota qualitativa (IssuerScore) |
+| Sharpe ratio                    | `S_sharpe`        | 15%  | Retorno ajustado ao risco |
+| Sortino ratio                   | `S_sortino`       | 5%   | Penaliza downside |
+| Dividend Yield                  | `S_yield`         | 8%   | `dividendYield` |
+| Anos de crescimento de dividendos | `S_divyears`    | 4%   | `dividendGrowthYears` |
+| Crescimento de dividendos       | `S_divgrowth`     | 4%   | `dividendGrowth` |
+| Beta balanceado                 | `S_beta`          | 2%   | Inverte `|beta - 1|` |
+| Volatilidade controlada         | `S_atr`           | 2%   | Inverte `atr / close` |
 
 ```
 FundamentalsScore =
-  0.20*S_custo +
-  0.15*S_liq +
+  0.15*S_custo +
+  0.12*S_liq_dollar +
+  0.08*S_liq_volume +
+  0.10*S_holdings +
+  0.05*S_assets +
   0.10*S_emissor +
-  0.20*S_sharpe +
-  0.10*S_sortino +
-  0.10*S_yield +
-  0.05*S_divyears +
-  0.05*S_beta +
-  0.05*S_atr +
-  0.05*S_divgrowth
+  0.15*S_sharpe +
+  0.05*S_sortino +
+  0.08*S_yield +
+  0.04*S_divyears +
+  0.04*S_divgrowth +
+  0.02*S_beta +
+  0.02*S_atr
 ```
 
 ---
@@ -93,35 +113,39 @@ FundamentalsScore =
 
 | Componente                      | Símbolo      | Peso | Observação |
 | ------------------------------- | ------------ | ---- | ---------- |
-| Desconto vs topo de 52 semanas  | `S_top52`    | 20%  | `high52ch` invertido                 |
-| Proximidade ao piso de 52 semanas| `S_bottom52` | 20%  | `low52ch` invertido                  |
-| Deslocamento das médias móveis  | `S_ma`       | 20%  | Inverte a média de `ma20ch/50/200`   |
-| RSI diário                      | `S_rsi`      | 15%  | Invertido                             |
-| Fluxo relativo de volume        | `S_relvol`   | 10%  | `log1p(relativeVolume)`              |
-| Momentum curto (1 mês)          | `S_tr1m`     | 10%  | `tr1m`                                 |
-| Movimento intradiário           | `S_intraday` | 5%   | `changeFromOpen`                      |
+| Variação diária                 | `S_ch1d`     | 12%  | `ch1d` |
+| Distância ao topo de 52 semanas | `S_top52`    | 18%  | `high52ch` invertido |
+| Distância ao fundo de 52 semanas| `S_bottom52` | 18%  | `low52ch` invertido |
+| Deslocamento das médias móveis  | `S_ma`       | 15%  | Média de `ma20ch`, `ma50ch`, `ma150ch`, `ma200ch` (invertido) |
+| RSI diário                      | `S_rsi`      | 10%  | RSI baixo ⇒ sobrevendido |
+| Fluxo relativo de volume        | `S_relvol`   | 8%   | `log1p(relativeVolume)` |
+| Momentum 1 mês                  | `S_tr1m`     | 8%   | `tr1m` |
+| Pré-market                      | `S_pre`      | 5%   | `premarketChangePercent` |
+| After-hours                     | `S_after`    | 6%   | `afterHoursChangePercent` (fallback `postmarketChangePercent`) |
 
 ```
 OpportunityScore =
-  0.20*S_top52 +
-  0.20*S_bottom52 +
-  0.20*S_ma +
-  0.15*S_rsi +
-  0.10*S_relvol +
-  0.10*S_tr1m +
-  0.05*S_intraday
+  0.12*S_ch1d +
+  0.18*S_top52 +
+  0.18*S_bottom52 +
+  0.15*S_ma +
+  0.10*S_rsi +
+  0.08*S_relvol +
+  0.08*S_tr1m +
+  0.05*S_pre +
+  0.06*S_after
 ```
 
-> Usamos tanto `high52ch` quanto `low52ch` para capturar onde o preço está ancorado dentro da faixa anual; ETFs perto do piso ganham pontos, enquanto os que já encostaram no topo perdem oportunidade.
+> Tanto `high52ch` quanto `low52ch` indicam onde o preço está ancorado na faixa anual; os sinais pré/pós mercado ajudam a identificar gaps que ainda não foram precificados no período regular.
 
 ---
 
 ## 6. Pontuação final e ranking
 
-Mantemos o balanço **50% Fundamentos / 50% Oportunidade** para que produtos estáveis mas caros não passem na frente de alvos descontados com risco elevado e vice-versa.
+Mantemos o balanço **60% Fundamentos / 40% Oportunidade** para privilegiar a qualidade estrutural sem perder o senso de timing.
 
 ```
-FinalScore = 0.50 * FundamentalsScore + 0.50 * OpportunityScore
+FinalScore = 0.60 * FundamentalsScore + 0.40 * OpportunityScore
 ```
 
 Ordene os ETFs por `FinalScore` em ordem decrescente. Empates são resolvidos por `FundamentalsScore` maior; persistindo, use ordem alfabética do ticker.
@@ -156,15 +180,22 @@ Ordene os ETFs por `FinalScore` em ordem decrescente. Empates são resolvidos po
 input: etfs[]  // ETFs com os campos do JSON
 
 for each etf in etfs:
-  liq_log    = log10(max(etf.dollarVolume, 1))
-  rel_vol    = log1p(max(etf.relativeVolume ?? 0, 0))
-  atr_ratio  = (etf.atr ?? 0) / max(etf.close ?? etf.open ?? 1, 1)
-  beta_dev   = abs((etf.beta ?? 1) - 1)
-  ma_combo   = mean(filter_not_null([etf.ma20ch, etf.ma50ch, etf.ma200ch]))
+  liq_dollar   = log10(max(etf.dollarVolume ?? 0, 1))
+  liq_volume   = log10(max(etf.volume ?? 0, 1))
+  holdings     = etf.holdings ?? etf.holdingsCount ?? 0
+  assets_log   = log10(max(etf.assets ?? 0, 1))
+  rel_vol      = log1p(max(etf.relativeVolume ?? 0, 0))
+  atr_ratio    = (etf.atr ?? 0) / max(etf.close ?? etf.open ?? 1, 1)
+  beta_dev     = abs((etf.beta ?? 1) - 1)
+  ma_combo     = mean(filter_not_null([etf.ma20ch, etf.ma50ch, etf.ma150ch, etf.ma200ch]))
+  after_change = coalesce(etf.afterHoursChangePercent, etf.postmarketChangePercent, 0)
 
   features = {
     "custo": -etf.expenseRatio,
-    "liq": liq_log,
+    "liq_dollar": liq_dollar,
+    "liq_volume": liq_volume,
+    "holdings": holdings,
+    "assets": assets_log,
     "emissor": mapIssuer(etf.issuer),
     "sharpe": etf.sharpeRatio,
     "sortino": etf.sortinoRatio,
@@ -173,40 +204,47 @@ for each etf in etfs:
     "divgrowth": etf.dividendGrowth,
     "beta": -beta_dev,
     "atr": -atr_ratio,
+    "ch1d": etf.ch1d,
     "top52": -etf.high52ch,
     "bottom52": -etf.low52ch,
     "ma": -ma_combo,
     "rsi": -etf.rsi,
     "relvol": rel_vol,
     "tr1m": etf.tr1m,
-    "intraday": etf.changeFromOpen
+    "pre": etf.premarketChangePercent,
+    "after": after_change
   }
 
 // winsorizar cada feature entre p2 e p98, depois aplicar min–max 0..100
 scores = normalize_features(features)
 
 Fundamentals =
-    0.20*scores["custo"] +
-    0.15*scores["liq"] +
+    0.15*scores["custo"] +
+    0.12*scores["liq_dollar"] +
+    0.08*scores["liq_volume"] +
+    0.10*scores["holdings"] +
+    0.05*scores["assets"] +
     0.10*scores["emissor"] +
-    0.20*scores["sharpe"] +
-    0.10*scores["sortino"] +
-    0.10*scores["yield"] +
-    0.05*scores["divyears"] +
-    0.05*scores["beta"] +
-    0.05*scores["atr"] +
-    0.05*scores["divgrowth"]
+    0.15*scores["sharpe"] +
+    0.05*scores["sortino"] +
+    0.08*scores["yield"] +
+    0.04*scores["divyears"] +
+    0.04*scores["divgrowth"] +
+    0.02*scores["beta"] +
+    0.02*scores["atr"]
 
 Opportunity =
-    0.20*scores["top52"] +
-    0.20*scores["bottom52"] +
-    0.20*scores["ma"] +
-    0.15*scores["rsi"] +
-    0.10*scores["relvol"] +
-    0.10*scores["tr1m"] +
-    0.05*scores["intraday"]
+    0.12*scores["ch1d"] +
+    0.18*scores["top52"] +
+    0.18*scores["bottom52"] +
+    0.15*scores["ma"] +
+    0.10*scores["rsi"] +
+    0.08*scores["relvol"] +
+    0.08*scores["tr1m"] +
+    0.05*scores["pre"] +
+    0.06*scores["after"]
 
-FinalScore = 0.50*Fundamentals + 0.50*Opportunity
+FinalScore = 0.60*Fundamentals + 0.40*Opportunity
 ```
 
 ---

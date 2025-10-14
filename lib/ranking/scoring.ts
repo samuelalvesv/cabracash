@@ -22,6 +22,9 @@ const FEATURE_CONFIG: Record<
 > = {
   expenseRatio: { invert: true },
   dollarVolume: {},
+  volumeLog: {},
+  holdings: {},
+  assetsLog: {},
   issuerScore: {},
   sharpeRatio: {},
   sortinoRatio: {},
@@ -30,36 +33,43 @@ const FEATURE_CONFIG: Record<
   dividendGrowth: {},
   betaDeviation: { invert: true },
   atrRatio: { invert: true },
+  ch1d: {},
   top52Distance: { invert: true },
   bottom52Distance: { invert: true },
   movingAverageCombo: { invert: true },
   rsi: { invert: true },
   relativeVolume: {},
   totalReturn1m: {},
-  intradayChange: {},
+  premarketChangePercent: {},
+  afterHoursChangePercent: {},
 };
 
 const FUNDAMENTALS_WEIGHTS: Record<string, number> = {
-  expenseRatio: 0.2,
-  dollarVolume: 0.15,
+  expenseRatio: 0.15,
+  dollarVolume: 0.12,
+  volumeLog: 0.08,
+  holdings: 0.1,
+  assetsLog: 0.05,
   issuerScore: 0.1,
-  sharpeRatio: 0.2,
-  sortinoRatio: 0.1,
-  dividendYield: 0.1,
-  dividendGrowthYears: 0.05,
-  betaDeviation: 0.05,
-  atrRatio: 0.05,
-  dividendGrowth: 0.05,
+  sharpeRatio: 0.15,
+  sortinoRatio: 0.05,
+  dividendYield: 0.08,
+  dividendGrowthYears: 0.04,
+  dividendGrowth: 0.04,
+  betaDeviation: 0.02,
+  atrRatio: 0.02,
 };
 
 const OPPORTUNITY_WEIGHTS: Record<string, number> = {
-  top52Distance: 0.2,
-  bottom52Distance: 0.2,
-  movingAverageCombo: 0.2,
-  rsi: 0.15,
-  relativeVolume: 0.1,
-  totalReturn1m: 0.1,
-  intradayChange: 0.05,
+  ch1d: 0.12,
+  top52Distance: 0.18,
+  bottom52Distance: 0.18,
+  movingAverageCombo: 0.15,
+  rsi: 0.1,
+  relativeVolume: 0.08,
+  totalReturn1m: 0.08,
+  premarketChangePercent: 0.05,
+  afterHoursChangePercent: 0.06,
 };
 
 function buildEtfEntries(data: Record<string, RawEtfMetrics | undefined>): EtfEntry[] {
@@ -116,7 +126,7 @@ function computeAtrRatio(metrics: RawEtfMetrics): number | null {
 }
 
 function computeMovingAverageCombo(metrics: RawEtfMetrics): number | null {
-  const values = [metrics.ma20ch, metrics.ma50ch, metrics.ma200ch].map((value) =>
+  const values = [metrics.ma20ch, metrics.ma50ch, metrics.ma150ch, metrics.ma200ch].map((value) =>
     toNullableNumber(value),
   );
   const filtered = values.filter((value): value is number => value !== null && Number.isFinite(value));
@@ -137,9 +147,20 @@ function getFeatureSet(entry: EtfEntry): FeatureSet {
     return Math.abs(beta - 1);
   })();
 
+  const dollarVolumeLog = log10Safely(toNullableNumber(metrics.dollarVolume));
+  const volumeLog = log10Safely(toNullableNumber(metrics.volume));
+  const holdings = toNullableNumber(metrics.holdings) ?? toNullableNumber(metrics.holdingsCount);
+  const assetsLog = log10Safely(toNullableNumber(metrics.assets));
+  const premarketChangePercent = toNullableNumber(metrics.premarketChangePercent);
+  const afterHoursChangePercent =
+    toNullableNumber(metrics.afterHoursChangePercent) ?? toNullableNumber(metrics.postmarketChangePercent);
+
   return {
     expenseRatio: toNullableNumber(metrics.expenseRatio),
-    dollarVolume: log10Safely(toNullableNumber(metrics.dollarVolume)),
+    dollarVolume: dollarVolumeLog,
+    volumeLog,
+    holdings,
+    assetsLog,
     issuerScore: scoreIssuer(metrics.issuer),
     sharpeRatio: toNullableNumber(metrics.sharpeRatio),
     sortinoRatio: toNullableNumber(metrics.sortinoRatio),
@@ -148,13 +169,15 @@ function getFeatureSet(entry: EtfEntry): FeatureSet {
     dividendGrowth: toNullableNumber(metrics.dividendGrowth),
     betaDeviation,
     atrRatio: computeAtrRatio(metrics),
+    ch1d: toNullableNumber(metrics.ch1d),
     top52Distance: toNullableNumber(metrics.high52ch),
     bottom52Distance: toNullableNumber(metrics.low52ch),
     movingAverageCombo: computeMovingAverageCombo(metrics),
     rsi: toNullableNumber(metrics.rsi),
     relativeVolume: log1pSafely(toNullableNumber(metrics.relativeVolume)),
     totalReturn1m: toNullableNumber(metrics.tr1m),
-    intradayChange: toNullableNumber(metrics.changeFromOpen),
+    premarketChangePercent,
+    afterHoursChangePercent,
   };
 }
 
@@ -258,7 +281,7 @@ export function scoreEtfs(entries: EtfEntry[]): RankedEtf[] {
         Object.values(opportunityComponents).reduce((acc, value) => acc + value, 0) /
         Object.values(OPPORTUNITY_WEIGHTS).reduce((acc, value) => acc + value, 0);
 
-      const finalScore = 0.5 * fundamentalsScore + 0.5 * opportunityScore;
+      const finalScore = 0.6 * fundamentalsScore + 0.4 * opportunityScore;
 
       return {
         symbol: entry.symbol,
