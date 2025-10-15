@@ -53,7 +53,7 @@ function buildSampleEtf(symbol: string): RankedEtf {
     scores: {
       fundamentals: 80,
       opportunity: 70,
-      final: 0.6 * 80 + 0.4 * 70,
+      final: 0.55 * 80 + 0.45 * 70,
       fundamentalsComponents,
       opportunityComponents,
     },
@@ -113,5 +113,32 @@ describe("RankingView", () => {
     expect(screen.getByText(/Sample ETF/)).toBeInTheDocument();
     expect(screen.getAllByText(/Fundamentos/)[0]).toBeInTheDocument();
     expect(screen.getAllByText(/Oportunidade/)[0]).toBeInTheDocument();
+  });
+
+  it("aplica filtros iniciais de score mínimo", () => {
+    const strong = buildSampleEtf("AAA");
+    const weak = buildSampleEtf("BBB");
+    weak.scores = {
+      ...weak.scores,
+      fundamentals: 40,
+      opportunity: 30,
+      final: 0.55 * 40 + 0.45 * 30,
+    };
+
+    render(
+      <ThemeRegistry>
+        <RankingView
+          items={[strong, weak]}
+          pageSize={12}
+          initialPage={1}
+          initialMinFundamentals={70}
+          initialMinOpportunity={0}
+        />
+      </ThemeRegistry>,
+    );
+
+    expect(screen.getAllByText(/AAA/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/BBB/)).toBeNull();
+    expect(screen.queryByText(/Nenhum ETF encontrado/)).toBeNull();
   });
 });
