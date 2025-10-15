@@ -25,6 +25,7 @@ const baseMetrics = {
   ch1d: 1.2,
   premarketChangePercent: 0.4,
   afterHoursChangePercent: 0.3,
+  trackingDifference: 0.4,
 };
 
 describe("scoreEtfs", () => {
@@ -42,6 +43,7 @@ describe("scoreEtfs", () => {
           dividendGrowthYears: 5,
           dividendGrowth: 4,
           beta: 0.95,
+          trackingDifference: 0.3,
         },
       },
       {
@@ -56,6 +58,7 @@ describe("scoreEtfs", () => {
           dividendGrowthYears: 1,
           dividendGrowth: -5,
           beta: 1.4,
+          trackingDifference: 2.0,
           rsi: 65,
           high52ch: -0.5,
           low52ch: 40,

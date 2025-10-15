@@ -18,27 +18,23 @@ vi.mock("next/link", () => ({
 function buildSampleEtf(symbol: string): RankedEtf {
   const features: RankedEtf["features"] = {
     expenseRatio: 0.05,
-    dollarVolume: Math.log10(100_000_000),
-    volumeLog: Math.log10(2_000_000),
+    liquidityComposite: Math.log10(100_000_000),
     holdings: 200,
     assetsLog: Math.log10(500_000_000),
     issuerScore: 95,
-    sharpeRatio: 1.1,
-    sortinoRatio: 0.8,
+    riskAdjustedReturn: 0.75,
     dividendYield: 2.5,
-    dividendGrowthYears: 5,
-    dividendGrowth: 3,
-    betaDeviation: 0.1,
-    atrRatio: 0.02,
-    ch1d: 1.2,
-    top52Distance: -4,
-    bottom52Distance: 10,
+    dividendStability: 0.6,
+    trackingEfficiency: 0.01,
+    riskBalance: 0.08,
+    intradayMomentum: 1.2,
+    discountFromHigh: -4,
+    distanceFromLow: 10,
     movingAverageCombo: -1.5,
     rsi: 45,
-    relativeVolume: Math.log1p(1.5),
-    totalReturn1m: 4,
-    premarketChangePercent: 0.3,
-    afterHoursChangePercent: 0.2,
+    volumePulse: Math.log1p(1.5),
+    momentum1m: 4,
+    gapSignal: 0.25,
   };
 
   const fundamentalsComponents: Record<string, number> = {};
@@ -98,6 +94,7 @@ function buildSampleEtf(symbol: string): RankedEtf {
       ch1d: 1.2,
       premarketChangePercent: 0.3,
       afterHoursChangePercent: 0.2,
+      trackingDifference: 0.4,
     } as RankedEtf["raw"],
   };
 }

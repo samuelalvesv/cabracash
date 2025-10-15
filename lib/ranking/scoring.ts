@@ -21,56 +21,55 @@ const FEATURE_CONFIG: Record<
   }
 > = {
   expenseRatio: { invert: true },
-  dollarVolume: {},
-  volumeLog: {},
+  liquidityComposite: {},
   holdings: {},
   assetsLog: {},
   issuerScore: {},
-  sharpeRatio: {},
-  sortinoRatio: {},
+  riskAdjustedReturn: {},
   dividendYield: {},
-  dividendGrowthYears: {},
-  dividendGrowth: {},
-  betaDeviation: { invert: true },
-  atrRatio: { invert: true },
-  ch1d: {},
-  top52Distance: { invert: true },
-  bottom52Distance: { invert: true },
+  dividendStability: {},
+  trackingEfficiency: { invert: true },
+  riskBalance: { invert: true },
+  intradayMomentum: {},
+  discountFromHigh: { invert: true },
+  distanceFromLow: { invert: true },
   movingAverageCombo: { invert: true },
   rsi: { invert: true },
-  relativeVolume: {},
-  totalReturn1m: {},
-  premarketChangePercent: {},
-  afterHoursChangePercent: {},
+  volumePulse: {},
+  momentum1m: {},
+  gapSignal: {},
 };
 
 const FUNDAMENTALS_WEIGHTS: Record<string, number> = {
-  expenseRatio: 0.15,
-  dollarVolume: 0.12,
-  volumeLog: 0.08,
-  holdings: 0.1,
-  assetsLog: 0.05,
-  issuerScore: 0.1,
-  sharpeRatio: 0.15,
-  sortinoRatio: 0.05,
-  dividendYield: 0.08,
-  dividendGrowthYears: 0.04,
-  dividendGrowth: 0.04,
-  betaDeviation: 0.02,
-  atrRatio: 0.02,
+  expenseRatio: 0.12,
+  liquidityComposite: 0.12,
+  holdings: 0.08,
+  assetsLog: 0.06,
+  issuerScore: 0.08,
+  riskAdjustedReturn: 0.18,
+  dividendYield: 0.07,
+  dividendStability: 0.07,
+  trackingEfficiency: 0.1,
+  riskBalance: 0.12,
 };
 
 const OPPORTUNITY_WEIGHTS: Record<string, number> = {
-  ch1d: 0.12,
-  top52Distance: 0.18,
-  bottom52Distance: 0.18,
+  intradayMomentum: 0.12,
+  discountFromHigh: 0.18,
+  distanceFromLow: 0.15,
   movingAverageCombo: 0.15,
-  rsi: 0.1,
-  relativeVolume: 0.08,
-  totalReturn1m: 0.08,
-  premarketChangePercent: 0.05,
-  afterHoursChangePercent: 0.06,
+  rsi: 0.12,
+  volumePulse: 0.1,
+  momentum1m: 0.08,
+  gapSignal: 0.1,
 };
+
+const FUNDAMENTALS_WEIGHT_SUM = Object.values(FUNDAMENTALS_WEIGHTS).reduce((acc, value) => acc + value, 0);
+const OPPORTUNITY_WEIGHT_SUM = Object.values(OPPORTUNITY_WEIGHTS).reduce((acc, value) => acc + value, 0);
+
+const LOW_RSI_THRESHOLD = 20;
+const LOW_VOLUME_LOG_THRESHOLD = Math.log1p(1);
+const VALUE_TRAP_PENALTY = 0.85;
 
 function buildEtfEntries(data: Record<string, RawEtfMetrics | undefined>): EtfEntry[] {
   return Object.entries(data)
@@ -137,8 +136,84 @@ function computeMovingAverageCombo(metrics: RawEtfMetrics): number | null {
   return mean(filtered);
 }
 
+function computeRiskAdjustedReturn(sharpe: number | null, sortino: number | null): number | null {
+  const normalizedSharpe =
+    sharpe === null ? null : (Math.min(Math.max(sharpe, -2), 5) + 2) / 7; // map [-2,5] -> [0,1]
+  const normalizedSortino =
+    sortino === null ? null : (Math.min(Math.max(sortino, -2), 6) + 2) / 8; // map [-2,6] -> [0,1]
+  const components = [normalizedSharpe, normalizedSortino].filter(
+    (value): value is number => value !== null && Number.isFinite(value),
+  );
+  if (components.length === 0) {
+    return null;
+  }
+  return mean(components);
+}
+
+function computeDividendStability(metrics: RawEtfMetrics): number | null {
+  const growthYears = toNullableNumber(metrics.dividendGrowthYears);
+  const growthRate = toNullableNumber(metrics.dividendGrowth);
+
+  const normalizedYears = growthYears === null ? null : Math.min(Math.max(growthYears, 0), 25) / 25;
+  const normalizedGrowth =
+    growthRate === null ? null : (Math.min(Math.max(growthRate, -5), 20) + 5) / 25; // clamp to [-5,20]
+
+  const components = [normalizedYears, normalizedGrowth].filter(
+    (value): value is number => value !== null && Number.isFinite(value),
+  );
+  if (components.length === 0) {
+    return null;
+  }
+  return mean(components);
+}
+
+function computeTrackingEfficiency(metrics: RawEtfMetrics): number | null {
+  const candidateKeys = [
+    "trackingDifference",
+    "trackingError",
+    "trackingError1y",
+    "trackingError3y",
+    "trackingError5y",
+  ];
+
+  const values = candidateKeys
+    .map((key) => toNullableNumber(metrics[key]))
+    .filter((value): value is number => value !== null && Number.isFinite(value));
+
+  if (values.length === 0) {
+    return null;
+  }
+
+  const absValues = values.map((value) => Math.abs(value));
+  return mean(absValues);
+}
+
+function computeRiskBalance(betaDeviation: number | null, atrRatio: number | null): number | null {
+  const components = [betaDeviation, atrRatio].filter(
+    (value): value is number => value !== null && Number.isFinite(value),
+  );
+  if (components.length === 0) {
+    return null;
+  }
+  return mean(components);
+}
+
+function computeGapSignal(
+  premarketChangePercent: number | null,
+  afterHoursChangePercent: number | null,
+): number | null {
+  const components = [premarketChangePercent, afterHoursChangePercent].filter(
+    (value): value is number => value !== null && Number.isFinite(value),
+  );
+  if (components.length === 0) {
+    return null;
+  }
+  return mean(components);
+}
+
 function getFeatureSet(entry: EtfEntry): FeatureSet {
   const { metrics } = entry;
+
   const betaDeviation = (() => {
     const beta = toNullableNumber(metrics.beta);
     if (beta === null) {
@@ -149,6 +224,8 @@ function getFeatureSet(entry: EtfEntry): FeatureSet {
 
   const dollarVolumeLog = log10Safely(toNullableNumber(metrics.dollarVolume));
   const volumeLog = log10Safely(toNullableNumber(metrics.volume));
+  const relativeVolumeLog = log1pSafely(toNullableNumber(metrics.relativeVolume));
+  const atrRatio = computeAtrRatio(metrics);
   const holdings = toNullableNumber(metrics.holdings) ?? toNullableNumber(metrics.holdingsCount);
   const assetsLog = log10Safely(toNullableNumber(metrics.assets));
   const premarketChangePercent = toNullableNumber(metrics.premarketChangePercent);
@@ -157,27 +234,28 @@ function getFeatureSet(entry: EtfEntry): FeatureSet {
 
   return {
     expenseRatio: toNullableNumber(metrics.expenseRatio),
-    dollarVolume: dollarVolumeLog,
-    volumeLog,
+    liquidityComposite: (() => {
+      const parts = [dollarVolumeLog, volumeLog, relativeVolumeLog].filter(
+        (value): value is number => value !== null && Number.isFinite(value),
+      );
+      return parts.length > 0 ? mean(parts) : null;
+    })(),
     holdings,
     assetsLog,
     issuerScore: scoreIssuer(metrics.issuer),
-    sharpeRatio: toNullableNumber(metrics.sharpeRatio),
-    sortinoRatio: toNullableNumber(metrics.sortinoRatio),
+    riskAdjustedReturn: computeRiskAdjustedReturn(toNullableNumber(metrics.sharpeRatio), toNullableNumber(metrics.sortinoRatio)),
     dividendYield: toNullableNumber(metrics.dividendYield),
-    dividendGrowthYears: toNullableNumber(metrics.dividendGrowthYears),
-    dividendGrowth: toNullableNumber(metrics.dividendGrowth),
-    betaDeviation,
-    atrRatio: computeAtrRatio(metrics),
-    ch1d: toNullableNumber(metrics.ch1d),
-    top52Distance: toNullableNumber(metrics.high52ch),
-    bottom52Distance: toNullableNumber(metrics.low52ch),
+    dividendStability: computeDividendStability(metrics),
+    trackingEfficiency: computeTrackingEfficiency(metrics),
+    riskBalance: computeRiskBalance(betaDeviation, atrRatio),
+    intradayMomentum: toNullableNumber(metrics.ch1d),
+    discountFromHigh: toNullableNumber(metrics.high52ch),
+    distanceFromLow: toNullableNumber(metrics.low52ch),
     movingAverageCombo: computeMovingAverageCombo(metrics),
     rsi: toNullableNumber(metrics.rsi),
-    relativeVolume: log1pSafely(toNullableNumber(metrics.relativeVolume)),
-    totalReturn1m: toNullableNumber(metrics.tr1m),
-    premarketChangePercent,
-    afterHoursChangePercent,
+    volumePulse: relativeVolumeLog,
+    momentum1m: toNullableNumber(metrics.tr1m),
+    gapSignal: computeGapSignal(premarketChangePercent, afterHoursChangePercent),
   };
 }
 
@@ -269,17 +347,27 @@ export function scoreEtfs(entries: EtfEntry[]): RankedEtf[] {
         fundamentalsComponents[key] = pickScaledScore(normalized, index, key as keyof FeatureSet) * weight;
       });
 
+      const fundamentalsScore =
+        Object.values(fundamentalsComponents).reduce((acc, value) => acc + value, 0) / FUNDAMENTALS_WEIGHT_SUM;
+
       Object.entries(OPPORTUNITY_WEIGHTS).forEach(([key, weight]) => {
         opportunityComponents[key] = pickScaledScore(normalized, index, key as keyof FeatureSet) * weight;
       });
 
-      const fundamentalsScore =
-        Object.values(fundamentalsComponents).reduce((acc, value) => acc + value, 0) /
-        Object.values(FUNDAMENTALS_WEIGHTS).reduce((acc, value) => acc + value, 0);
+      let opportunityScore =
+        Object.values(opportunityComponents).reduce((acc, value) => acc + value, 0) / OPPORTUNITY_WEIGHT_SUM;
 
-      const opportunityScore =
-        Object.values(opportunityComponents).reduce((acc, value) => acc + value, 0) /
-        Object.values(OPPORTUNITY_WEIGHTS).reduce((acc, value) => acc + value, 0);
+      const features = featureSets[index];
+      if (
+        features.rsi !== null &&
+        features.rsi < LOW_RSI_THRESHOLD &&
+        (features.volumePulse === null || features.volumePulse < LOW_VOLUME_LOG_THRESHOLD)
+      ) {
+        opportunityScore *= VALUE_TRAP_PENALTY;
+        Object.keys(opportunityComponents).forEach((key) => {
+          opportunityComponents[key] *= VALUE_TRAP_PENALTY;
+        });
+      }
 
       const finalScore = 0.6 * fundamentalsScore + 0.4 * opportunityScore;
 

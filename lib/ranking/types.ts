@@ -7,27 +7,23 @@ export interface EtfEntry {
 
 export interface FeatureSet {
   expenseRatio: number | null;
-  dollarVolume: number | null;
-  volumeLog: number | null;
+  liquidityComposite: number | null;
   holdings: number | null;
   assetsLog: number | null;
   issuerScore: number | null;
-  sharpeRatio: number | null;
-  sortinoRatio: number | null;
+  riskAdjustedReturn: number | null;
   dividendYield: number | null;
-  dividendGrowthYears: number | null;
-  dividendGrowth: number | null;
-  betaDeviation: number | null;
-  atrRatio: number | null;
-  ch1d: number | null;
-  top52Distance: number | null;
-  bottom52Distance: number | null;
+  dividendStability: number | null;
+  trackingEfficiency: number | null;
+  riskBalance: number | null;
+  intradayMomentum: number | null;
+  discountFromHigh: number | null;
+  distanceFromLow: number | null;
   movingAverageCombo: number | null;
   rsi: number | null;
-  relativeVolume: number | null;
-  totalReturn1m: number | null;
-  premarketChangePercent: number | null;
-  afterHoursChangePercent: number | null;
+  volumePulse: number | null;
+  momentum1m: number | null;
+  gapSignal: number | null;
 }
 
 export interface ScaledFeatureSet {

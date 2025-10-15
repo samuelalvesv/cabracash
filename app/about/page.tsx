@@ -155,7 +155,7 @@ export default function AboutPage() {
                   </Typography>
                 </Stack>
                 <Typography variant="body2" color="text.secondary">
-                  Custos, liquidez, diversificação, emissor, métricas de risco/retorno e consistência de dividendos.
+                  Custos, liquidez composta, força do emissor, risco/retorno (Sharpe + Sortino) e estabilidade de dividendos.
                 </Typography>
                 <Stack direction="row" spacing={1} alignItems="center">
                   <TimelineIcon color="secondary" fontSize="small" />
@@ -164,12 +164,11 @@ export default function AboutPage() {
                   </Typography>
                 </Stack>
                 <Typography variant="body2" color="text.secondary">
-                  Momentum de preços, distância a extremos de 52 semanas, RSI, volume relativo e movimentos pré/pós mercado.
+                  Descontos vs. 52 semanas, momentum de 1 dia/1 mês, pulso de volume e gaps pré/pós-market com filtros anti value-trap.
                 </Typography>
               </Stack>
               <Typography variant="body2" color="text.secondary">
-                Pesos, fórmulas e tratamento de dados estão descritos em detalhes na documentação. A pontuação final usa a
-                média ponderada 60/40 e desempate por fundamentos.
+                Pesos, fórmulas e tratamento de dados estão descritos em detalhes na documentação. A média ponderada 60/40 inclui penalizações automáticas para quedas sem fluxo e desempate por fundamentos.
               </Typography>
             </Paper>
           </Grid>

@@ -32,6 +32,17 @@ export interface ResolvedDetailSection {
   items: ResolvedDetailItem[];
 }
 
+function toNumber(value: unknown): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 const detailSectionsConfig: DetailSectionConfig[] = [
   {
     id: "identification",
@@ -105,10 +116,36 @@ const detailSectionsConfig: DetailSectionConfig[] = [
     id: "liquidityVolume",
     title: "Liquidez e Volume",
     items: [
+      { key: "liquidityComposite", label: "Liquidez composta (score)", format: "decimal", getValue: (etf) => etf.features.liquidityComposite },
       { key: "dollarVolume", label: "Volume financeiro", format: "compact", getValue: (etf) => etf.raw.dollarVolume },
       { key: "averageVolume", label: "Volume médio", format: "compact", getValue: (etf) => etf.raw.averageVolume },
       { key: "relativeVolume", label: "Volume relativo", getValue: (etf) => etf.raw.relativeVolume },
       { key: "sharesOut", label: "Ações em circulação", format: "compact", getValue: (etf) => etf.raw.sharesOut },
+    ],
+  },
+  {
+    id: "riskTracking",
+    title: "Risco e Tracking",
+    items: [
+      { key: "riskAdjustedReturn", label: "Score risco/retorno", format: "decimal", getValue: (etf) => etf.features.riskAdjustedReturn },
+      { key: "riskBalance", label: "Risco balanceado", format: "decimal", getValue: (etf) => etf.features.riskBalance },
+      { key: "trackingEfficiency", label: "Tracking (abs)", format: "decimal", getValue: (etf) => etf.features.trackingEfficiency },
+      { key: "beta", label: "Beta (5Y)", getValue: (etf) => etf.raw.beta },
+      {
+        key: "atrRatio",
+        label: "ATR/Preço",
+        format: "decimal",
+        getValue: (etf) => {
+          const atr = toNumber(etf.raw.atr);
+          const base = [etf.raw.close, etf.raw.price, etf.raw.preClose, etf.raw.open]
+            .map(toNumber)
+            .find((value) => value !== null && value > 0);
+          if (atr === null || base === undefined || base === null) {
+            return null;
+          }
+          return atr / Math.max(base, 1);
+        },
+      },
     ],
   },
   {
@@ -119,8 +156,6 @@ const detailSectionsConfig: DetailSectionConfig[] = [
       { key: "rsiWeekly", label: "RSI semanal", getValue: (etf) => etf.raw.rsiWeekly },
       { key: "rsiMonthly", label: "RSI mensal", getValue: (etf) => etf.raw.rsiMonthly },
       { key: "atr", label: "ATR", getValue: (etf) => etf.raw.atr },
-      { key: "sharpeRatio", label: "Sharpe", getValue: (etf) => etf.raw.sharpeRatio },
-      { key: "sortinoRatio", label: "Sortino", getValue: (etf) => etf.raw.sortinoRatio },
       { key: "ma20", label: "Média 20", getValue: (etf) => etf.raw.ma20 },
       { key: "ma50", label: "Média 50", getValue: (etf) => etf.raw.ma50 },
       { key: "ma150", label: "Média 150", getValue: (etf) => etf.raw.ma150 },
@@ -129,8 +164,8 @@ const detailSectionsConfig: DetailSectionConfig[] = [
       { key: "ma50ch", label: "MA50 var %", getValue: (etf) => etf.raw.ma50ch },
       { key: "ma150ch", label: "MA150 var %", getValue: (etf) => etf.raw.ma150ch },
       { key: "ma200ch", label: "MA200 var %", getValue: (etf) => etf.raw.ma200ch },
-      { key: "beta", label: "Beta (5Y)", getValue: (etf) => etf.raw.beta },
       { key: "peRatio", label: "P/L", getValue: (etf) => etf.raw.peRatio },
+      { key: "gapSignal", label: "Gap pré/pós-market", format: "percent", getValue: (etf) => etf.features.gapSignal },
     ],
   },
   {
@@ -187,6 +222,7 @@ const detailSectionsConfig: DetailSectionConfig[] = [
       { key: "dividendYield", label: "Dividend Yield", format: "percent", getValue: (etf) => etf.raw.dividendYield },
       { key: "dividendGrowth", label: "Crescimento de dividendos", getValue: (etf) => etf.raw.dividendGrowth },
       { key: "dividendGrowthYears", label: "Anos de crescimento", format: "number", getValue: (etf) => etf.raw.dividendGrowthYears },
+      { key: "dividendStability", label: "Estabilidade (score)", format: "decimal", getValue: (etf) => etf.features.dividendStability },
       { key: "divCAGR3", label: "Dividend Growth (3Y)", getValue: (etf) => etf.raw.divCAGR3 },
       { key: "divCAGR5", label: "Dividend Growth (5Y)", getValue: (etf) => etf.raw.divCAGR5 },
       { key: "divCAGR10", label: "Dividend Growth (10Y)", getValue: (etf) => etf.raw.divCAGR10 },
