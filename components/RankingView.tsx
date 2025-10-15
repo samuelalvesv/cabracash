@@ -382,28 +382,6 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
                 <TableChartIcon fontSize="small" />
               </ToggleButton>
             </ToggleButtonGroup>
-            {viewMode === "grid" && (
-              <Stack direction="row" spacing={1}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<ContentCopyIcon fontSize="small" />}
-                  onClick={handleCopyVisibleGrid}
-                  disabled={gridRows.length === 0}
-                >
-                  Copiar página
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<ContentCopyIcon fontSize="small" />}
-                  onClick={handleCopyAllGrid}
-                  disabled={filteredItems.length === 0}
-                >
-                  Copiar tudo
-                </Button>
-              </Stack>
-            )}
             <Chip label={`Total: ${totalItems}`} color="primary" variant="outlined" />
           </Stack>
         </Stack>
@@ -580,7 +558,27 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
             })}
           </Box>
         ) : (
-          <Paper variant="outlined" sx={{ width: "100%", overflow: "hidden" }}>
+          <Paper variant="outlined" sx={{ width: "100%", overflow: "hidden", border: "none" }}>
+            <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end", mb: 2 }}>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<ContentCopyIcon fontSize="small" />}
+                onClick={handleCopyVisibleGrid}
+                disabled={gridRows.length === 0}
+              >
+                Copiar página
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<ContentCopyIcon fontSize="small" />}
+                onClick={handleCopyAllGrid}
+                disabled={filteredItems.length === 0}
+              >
+                Copiar tudo
+              </Button>
+            </Stack>
             <DataGrid
               rows={gridRows}
               columns={dataGridColumns}
