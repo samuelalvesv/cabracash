@@ -90,10 +90,19 @@ export default function AboutPage() {
     <Container maxWidth="lg" sx={{ py: { xs: 4, md: 8 } }}>
       <Stack spacing={6}>
         <Box>
-          <Typography variant="h3" fontWeight={700} gutterBottom>
+          <Typography
+            variant="h3"
+            fontWeight={700}
+            gutterBottom
+            sx={{ fontSize: { xs: "2rem", md: "2.75rem" } }}
+          >
             Porque dolarizar o patrimônio com ETFs pode ser um divisor de águas
           </Typography>
-          <Typography variant="h6" color="text.secondary">
+          <Typography
+            variant="h6"
+            color="text.secondary"
+            sx={{ fontSize: { xs: "1rem", md: "1.25rem" } }}
+          >
             Ao diversificar em ETFs listados nos EUA você protege o poder de compra, amplia horizontes setoriais e aproveita a
             eficiência de fundos automatizados — sem precisar escolher ações individuais.
           </Typography>

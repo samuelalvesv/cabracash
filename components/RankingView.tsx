@@ -361,17 +361,21 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
           spacing={2}
         >
           <Box>
-            <Typography variant="h3" fontWeight={700}>
-              Ranking unificado de ETFs
+            <Typography
+              variant="h4"
+              fontWeight={700}
+              sx={{ fontSize: { xs: "1.8rem", md: "2.2rem" } }}
+            >
+              Ranking de ETFs
             </Typography>
             <Typography variant="body1" color="text.secondary">
               Fundamentos e oportunidade de compra analisados de forma independente da categoria declarada.
             </Typography>
           </Box>
           <Stack
-            direction={{ xs: "column", sm: "row" }}
-            spacing={2}
-            alignItems={{ xs: "stretch", sm: "center" }}
+            direction="row"
+            spacing={1.5}
+            alignItems="center"
             justifyContent={{ xs: "flex-start", sm: "flex-end" }}
             flexWrap="wrap"
           >
