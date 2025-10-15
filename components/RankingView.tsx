@@ -11,7 +11,6 @@ import {
   Chip,
   Container,
   Divider,
-  IconButton,
   InputAdornment,
   LinearProgress,
   Pagination,
@@ -25,13 +24,10 @@ import {
   TextField,
   ToggleButton,
   ToggleButtonGroup,
-  Tooltip,
   Typography,
   type SnackbarCloseReason,
 } from "@mui/material";
 import { DataGrid, type GridColDef, type GridColumnVisibilityModel, type GridRenderCellParams } from "@mui/x-data-grid";
-import LightModeIcon from "@mui/icons-material/LightMode";
-import DarkModeIcon from "@mui/icons-material/DarkMode";
 import SearchIcon from "@mui/icons-material/Search";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import ViewModuleIcon from "@mui/icons-material/ViewModule";
@@ -42,7 +38,6 @@ import type { RankedEtf } from "@/lib/ranking/types";
 import { formatMetric, formatScore } from "@/lib/formatters";
 import { FUNDAMENTAL_DEFINITIONS, OPPORTUNITY_DEFINITIONS } from "@/lib/ranking/metricDefinitions";
 import { DETAIL_SECTIONS, formatDetailValue, type DetailItemConfig, type DetailValue } from "@/lib/ranking/detailSections";
-import { useColorMode } from "@/hooks/useColorMode";
 
 type ViewMode = "cards" | "grid";
 
@@ -106,7 +101,7 @@ function buildSearchText(item: RankedEtf): string {
 }
 
 export function RankingView({ items, pageSize, initialPage, initialSearch = "" }: RankingViewProps) {
-  const { mode, toggleColorMode } = useColorMode();
+
 
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [columnVisibilityModel, setColumnVisibilityModel] = useState<GridColumnVisibilityModel>(() => ({
@@ -379,16 +374,6 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
             justifyContent={{ xs: "flex-start", sm: "flex-end" }}
             flexWrap="wrap"
           >
-            <Tooltip title={`Alternar para modo ${mode === "dark" ? "claro" : "escuro"}`} arrow>
-              <Paper
-                variant="outlined"
-                sx={{ display: "flex", alignItems: "center", px: 1, py: 0.5, borderRadius: 999, backdropFilter: "blur(8px)" }}
-              >
-                <IconButton color="primary" onClick={toggleColorMode} aria-label="Alternar tema" size="small">
-                  {mode === "dark" ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
-                </IconButton>
-              </Paper>
-            </Tooltip>
             <ToggleButtonGroup color="primary" size="small" exclusive value={viewMode} onChange={handleViewModeChange}>
               <ToggleButton value="cards" aria-label="Mostrar cards">
                 <ViewModuleIcon fontSize="small" />
@@ -397,28 +382,6 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
                 <TableChartIcon fontSize="small" />
               </ToggleButton>
             </ToggleButtonGroup>
-            {viewMode === "grid" && (
-              <Stack direction="row" spacing={1}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<ContentCopyIcon fontSize="small" />}
-                  onClick={handleCopyVisibleGrid}
-                  disabled={gridRows.length === 0}
-                >
-                  Copiar página
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<ContentCopyIcon fontSize="small" />}
-                  onClick={handleCopyAllGrid}
-                  disabled={filteredItems.length === 0}
-                >
-                  Copiar tudo
-                </Button>
-              </Stack>
-            )}
             <Chip label={`Total: ${totalItems}`} color="primary" variant="outlined" />
           </Stack>
         </Stack>
@@ -595,7 +558,27 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
             })}
           </Box>
         ) : (
-          <Paper variant="outlined" sx={{ width: "100%", overflow: "hidden" }}>
+          <Paper variant="outlined" sx={{ width: "100%", overflow: "hidden", border: "none" }}>
+            <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end", mb: 2 }}>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<ContentCopyIcon fontSize="small" />}
+                onClick={handleCopyVisibleGrid}
+                disabled={gridRows.length === 0}
+              >
+                Copiar página
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<ContentCopyIcon fontSize="small" />}
+                onClick={handleCopyAllGrid}
+                disabled={filteredItems.length === 0}
+              >
+                Copiar tudo
+              </Button>
+            </Stack>
             <DataGrid
               rows={gridRows}
               columns={dataGridColumns}
