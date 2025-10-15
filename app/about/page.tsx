@@ -2,9 +2,8 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Box, Breadcrumbs, Button, Container, Divider, Paper, Stack, Typography } from "@mui/material";
+import { Box, Button, Container, Divider, Paper, Stack, Typography } from "@mui/material";
 import Grid from "@mui/material/Grid";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import PublicIcon from "@mui/icons-material/Public";
 import SavingsIcon from "@mui/icons-material/Savings";
@@ -90,27 +89,15 @@ export default function AboutPage() {
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 4, md: 8 } }}>
       <Stack spacing={6}>
-        <Stack spacing={2}>
-          <Breadcrumbs aria-label="breadcrumb">
-            <Link href="/" style={{ textDecoration: "none", color: "inherit" }}>
-              <Typography color="text.secondary">Início</Typography>
-            </Link>
-            <Typography color="text.primary">Sobre</Typography>
-          </Breadcrumbs>
-
-          <Box>
-            <Typography variant="overline" color="primary">
-              Dolarização com ETFs
-            </Typography>
-            <Typography variant="h3" fontWeight={700} gutterBottom>
-              Porque dolarizar o patrimônio com ETFs pode ser um divisor de águas
-            </Typography>
-            <Typography variant="h6" color="text.secondary">
-              Ao diversificar em ETFs listados nos EUA você protege o poder de compra, amplia horizontes setoriais e
-              aproveita a eficiência de fundos automatizados — sem precisar escolher ações individuais.
-            </Typography>
-          </Box>
-        </Stack>
+        <Box>
+          <Typography variant="h3" fontWeight={700} gutterBottom>
+            Porque dolarizar o patrimônio com ETFs pode ser um divisor de águas
+          </Typography>
+          <Typography variant="h6" color="text.secondary">
+            Ao diversificar em ETFs listados nos EUA você protege o poder de compra, amplia horizontes setoriais e aproveita a
+            eficiência de fundos automatizados — sem precisar escolher ações individuais.
+          </Typography>
+        </Box>
 
         <Divider />
 
@@ -258,26 +245,16 @@ export default function AboutPage() {
                 Compare ETFs, filtre por categoria e aprofunde-se nas métricas para montar sua carteira dolarizada com confiança.
               </Typography>
             </Stack>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <Button
-                component={Link}
-                href="/"
-                variant="contained"
-                color="primary"
-                startIcon={<BarChartIcon />}
-              >
-                Ver ranking
-              </Button>
-              <Button
-                component={Link}
-                href="/"
-                variant="outlined"
-                color="inherit"
-                startIcon={<ArrowBackIcon />}
-              >
-                Voltar à home
-              </Button>
-            </Stack>
+            <Button
+              component={Link}
+              href="/"
+              variant="contained"
+              color="primary"
+              startIcon={<BarChartIcon />}
+              sx={{ alignSelf: "center" }}
+            >
+              Ver ranking
+            </Button>
           </Stack>
         </Paper>
       </Stack>
