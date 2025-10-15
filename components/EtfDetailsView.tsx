@@ -26,211 +26,13 @@ import {
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
-import { formatDate, formatMetric, formatScore, type MetricFormat } from "@/lib/formatters";
+import { formatScore } from "@/lib/formatters";
 import { FUNDAMENTAL_DEFINITIONS, OPPORTUNITY_DEFINITIONS } from "@/lib/ranking/metricDefinitions";
 import type { RankedEtf } from "@/lib/ranking/types";
-
-type DetailFormat = MetricFormat | "date" | "list" | "raw";
-
-interface DetailItem {
-  label: string;
-  value: number | string | string[] | null | undefined;
-  format?: DetailFormat;
-}
-
-interface DetailSection {
-  title: string;
-  items: DetailItem[];
-}
+import { buildDetailSections, formatDetailValue } from "@/lib/ranking/detailSections";
 
 interface EtfDetailsViewProps {
   etf: RankedEtf;
-}
-
-function renderDetailValue(item: DetailItem): string {
-  const { value, format } = item;
-
-  if (format === "list") {
-    if (Array.isArray(value)) {
-      return value.length > 0 ? value.join(", ") : "—";
-    }
-    return typeof value === "string" && value.length > 0 ? value : "—";
-  }
-
-  if (format === "date") {
-    return formatDate(typeof value === "string" ? value : null);
-  }
-
-  if (format === "raw") {
-    if (value === null || value === undefined) {
-      return "—";
-    }
-    if (Array.isArray(value)) {
-      return value.join(", ");
-    }
-    return String(value);
-  }
-
-  return formatMetric(value as number | string | null | undefined, format);
-}
-
-function buildDetailSections(etf: RankedEtf): DetailSection[] {
-  const raw = etf.raw;
-
-  return [
-    {
-      title: "Identificação",
-      items: [
-        { label: "Símbolo", value: etf.symbol, format: "raw" },
-        { label: "Nome", value: raw.name, format: "raw" },
-        { label: "Classe de Ativo", value: raw.assetClass, format: "raw" },
-        { label: "Categoria", value: raw.etfCategory, format: "raw" },
-        { label: "Emissor", value: raw.issuer, format: "raw" },
-        { label: "Índice", value: raw.etfIndex, format: "raw" },
-        { label: "Bolsa", value: raw.exchange, format: "raw" },
-        { label: "Região", value: raw.etfRegion, format: "raw" },
-        { label: "País", value: raw.etfCountry, format: "raw" },
-        { label: "Alavancagem", value: raw.etfLeverage, format: "raw" },
-        { label: "Opções disponíveis", value: raw.optionable, format: "raw" },
-        { label: "Início", value: raw.inceptionDate, format: "date" },
-        { label: "CUSIP", value: raw.cusip, format: "raw" },
-        { label: "ISIN", value: raw.isin, format: "raw" },
-        { label: "Tags", value: Array.isArray(raw.tags) ? raw.tags : [], format: "list" },
-      ],
-    },
-    {
-      title: "Ativos e Holdings",
-      items: [
-        { label: "Assets", value: raw.assets, format: "compact" },
-        { label: "Holdings", value: raw.holdings ?? raw.holdingsCount, format: "number" },
-      ],
-    },
-    {
-      title: "Preços e Mercado",
-      items: [
-        { label: "Preço atual", value: raw.price ?? raw.close },
-        { label: "Abertura", value: raw.open },
-        { label: "Máxima", value: raw.high },
-        { label: "Mínima", value: raw.low },
-        { label: "Fechamento", value: raw.close },
-        { label: "Fechamento anterior", value: raw.preClose },
-        { label: "Premarket Close", value: raw.premarketClose ?? raw.preClose },
-        { label: "Pré-market preço", value: raw.premarketPrice },
-        { label: "Pré-market %", value: raw.premarketChangePercent, format: "percent" },
-        { label: "Pré-market volume", value: raw.premarketVolume, format: "compact" },
-        { label: "After-hours preço", value: raw.afterHoursPrice ?? raw.postmarketPrice },
-        { label: "After-hours %", value: raw.afterHoursChangePercent ?? raw.postmarketChangePercent, format: "percent" },
-        { label: "After-hours close", value: raw.afterHoursClose ?? raw.postClose },
-        { label: "Movimento intradiário", value: raw.changeFromOpen, format: "percent" },
-        { label: "Gap diário", value: raw.daysGap, format: "percent" },
-        { label: "Volume", value: raw.volume, format: "compact" },
-      ],
-    },
-    {
-      title: "Liquidez e Volume",
-      items: [
-        { label: "Volume financeiro", value: raw.dollarVolume, format: "compact" },
-        { label: "Volume médio", value: raw.averageVolume, format: "compact" },
-        { label: "Volume relativo", value: raw.relativeVolume },
-        { label: "Ações em circulação", value: raw.sharesOut, format: "compact" },
-      ],
-    },
-    {
-      title: "Indicadores Técnicos",
-      items: [
-        { label: "RSI", value: raw.rsi },
-        { label: "RSI semanal", value: raw.rsiWeekly },
-        { label: "RSI mensal", value: raw.rsiMonthly },
-        { label: "ATR", value: raw.atr },
-        { label: "Sharpe", value: raw.sharpeRatio },
-        { label: "Sortino", value: raw.sortinoRatio },
-        { label: "Média 20", value: raw.ma20 },
-        { label: "Média 50", value: raw.ma50 },
-        { label: "Média 150", value: raw.ma150 },
-        { label: "Média 200", value: raw.ma200 },
-        { label: "MA20 var %", value: raw.ma20ch },
-        { label: "MA50 var %", value: raw.ma50ch },
-        { label: "MA150 var %", value: raw.ma150ch },
-        { label: "MA200 var %", value: raw.ma200ch },
-        { label: "Beta (5Y)", value: raw.beta },
-        { label: "P/L", value: raw.peRatio },
-      ],
-    },
-    {
-      title: "Variação Percentual",
-      items: [
-        { label: "1D", value: raw.ch1d, format: "percent" },
-        { label: "1M", value: raw.ch1m, format: "percent" },
-        { label: "3M", value: raw.ch3m, format: "percent" },
-        { label: "6M", value: raw.ch6m, format: "percent" },
-        { label: "YTD", value: raw.chYTD, format: "percent" },
-        { label: "1A", value: raw.ch1y, format: "percent" },
-        { label: "3A", value: raw.ch3y, format: "percent" },
-        { label: "5A", value: raw.ch5y, format: "percent" },
-        { label: "10A", value: raw.ch10y, format: "percent" },
-        { label: "15A", value: raw.ch15y, format: "percent" },
-        { label: "20A", value: raw.ch20y, format: "percent" },
-      ],
-    },
-    {
-      title: "Total Return",
-      items: [
-        { label: "TR 1M", value: raw.tr1m, format: "percent" },
-        { label: "TR 3M", value: raw.tr3m, format: "percent" },
-        { label: "TR 6M", value: raw.tr6m, format: "percent" },
-        { label: "TR YTD", value: raw.trYTD, format: "percent" },
-        { label: "TR 1A", value: raw.tr1y, format: "percent" },
-        { label: "TR 3A", value: raw.tr3y, format: "percent" },
-        { label: "TR 5A", value: raw.tr5y, format: "percent" },
-        { label: "TR 10A", value: raw.tr10y, format: "percent" },
-        { label: "TR 15A", value: raw.tr15y, format: "percent" },
-        { label: "TR 20A", value: raw.tr20y, format: "percent" },
-      ],
-    },
-    {
-      title: "CAGR",
-      items: [
-        { label: "CAGR 1A", value: raw.cagr1y, format: "percent" },
-        { label: "CAGR 3A", value: raw.cagr3y, format: "percent" },
-        { label: "CAGR 5A", value: raw.cagr5y, format: "percent" },
-        { label: "CAGR 10A", value: raw.cagr10y, format: "percent" },
-        { label: "CAGR 15A", value: raw.cagr15y, format: "percent" },
-        { label: "CAGR 20A", value: raw.cagr20y, format: "percent" },
-      ],
-    },
-    {
-      title: "Dividendos",
-      items: [
-        { label: "Dividend Per Share", value: raw.dps },
-        { label: "Último dividendo", value: raw.lastDividend },
-        { label: "Dividend Yield", value: raw.dividendYield, format: "percent" },
-        { label: "Crescimento de dividendos", value: raw.dividendGrowth },
-        { label: "Anos de crescimento", value: raw.dividendGrowthYears, format: "number" },
-        { label: "Dividend Growth (3Y)", value: raw.divCAGR3 },
-        { label: "Dividend Growth (5Y)", value: raw.divCAGR5 },
-        { label: "Dividend Growth (10Y)", value: raw.divCAGR10 },
-        { label: "Payout", value: raw.payoutRatio },
-        { label: "Frequência de pagamento", value: raw.payoutFrequency, format: "raw" },
-        { label: "Ex-dividend", value: raw.exDivDate, format: "date" },
-        { label: "Pagamento", value: raw.paymentDate, format: "date" },
-      ],
-    },
-    {
-      title: "Extremos e Histórico",
-      items: [
-        { label: "Mínimo 52S", value: raw.low52 },
-        { label: "Máximo 52S", value: raw.high52 },
-        { label: "Variação vs. mín. 52S", value: raw.low52ch },
-        { label: "Variação vs. máx. 52S", value: raw.high52ch },
-        { label: "Máxima histórica", value: raw.allTimeHigh },
-        { label: "Variação da máxima (%)", value: raw.allTimeHighChange, format: "percent" },
-        { label: "Data da máxima", value: raw.allTimeHighDate, format: "date" },
-        { label: "Mínima histórica", value: raw.allTimeLow },
-        { label: "Variação da mínima (%)", value: raw.allTimeLowChange, format: "percent" },
-        { label: "Data da mínima", value: raw.allTimeLowDate, format: "date" },
-      ],
-    },
-  ];
 }
 
 export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
@@ -364,7 +166,7 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
                   {fundamentalsBreakdown.map((item) => (
                     <TableRow key={item.key}>
                       <TableCell>{item.label}</TableCell>
-                      <TableCell align="right">{renderDetailValue({ label: item.label, value: item.value, format: item.format })}</TableCell>
+                      <TableCell align="right">{formatDetailValue(item.value, item.format)}</TableCell>
                       <TableCell align="right">
                         <Tooltip title={`Peso ${item.weight ?? 0}`}>
                           <Typography variant="body2" fontWeight={600} component="span">
@@ -395,7 +197,7 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
                   {opportunityBreakdown.map((item) => (
                     <TableRow key={item.key}>
                       <TableCell>{item.label}</TableCell>
-                      <TableCell align="right">{renderDetailValue({ label: item.label, value: item.value, format: item.format })}</TableCell>
+                      <TableCell align="right">{formatDetailValue(item.value, item.format)}</TableCell>
                       <TableCell align="right">
                         <Tooltip title={`Peso ${item.weight ?? 0}`}>
                           <Typography variant="body2" fontWeight={600} component="span">
@@ -428,7 +230,7 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
                       </TableCell>
                       <TableCell sx={{ border: 0 }} align="right">
                         <Typography variant="body2" fontWeight={600}>
-                          {renderDetailValue(item)}
+                          {formatDetailValue(item.value, item.format)}
                         </Typography>
                       </TableCell>
                     </TableRow>

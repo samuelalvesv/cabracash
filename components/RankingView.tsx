@@ -4,9 +4,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Alert,
   Box,
+  Button,
   Card,
-  CardContent,
   CardActionArea,
+  CardContent,
   Chip,
   Container,
   Divider,
@@ -15,24 +16,64 @@ import {
   LinearProgress,
   Pagination,
   Paper,
+  Snackbar,
   Stack,
   Table,
   TableBody,
   TableCell,
   TableRow,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
+  type SnackbarCloseReason,
 } from "@mui/material";
+import { DataGrid, type GridColDef, type GridColumnVisibilityModel, type GridRenderCellParams } from "@mui/x-data-grid";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import SearchIcon from "@mui/icons-material/Search";
+import TableChartIcon from "@mui/icons-material/TableChart";
+import ViewModuleIcon from "@mui/icons-material/ViewModule";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import Link from "next/link";
 
 import type { RankedEtf } from "@/lib/ranking/types";
 import { formatMetric, formatScore } from "@/lib/formatters";
 import { FUNDAMENTAL_DEFINITIONS, OPPORTUNITY_DEFINITIONS } from "@/lib/ranking/metricDefinitions";
+import { DETAIL_SECTIONS, formatDetailValue, type DetailItemConfig, type DetailValue } from "@/lib/ranking/detailSections";
 import { useColorMode } from "@/hooks/useColorMode";
+
+type ViewMode = "cards" | "grid";
+
+type DetailColumnConfig = DetailItemConfig & {
+  sectionId: string;
+  sectionTitle: string;
+};
+
+type RankingGridRow = {
+  id: string;
+  position: number;
+} & Record<string, DetailValue>;
+
+const DETAIL_COLUMN_CONFIGS: DetailColumnConfig[] = DETAIL_SECTIONS.flatMap((section) =>
+  section.items.map((item) => ({
+    ...item,
+    sectionId: section.id,
+    sectionTitle: section.title,
+  })),
+);
+
+const DEFAULT_COLUMN_VISIBILITY: Record<string, boolean> = DETAIL_COLUMN_CONFIGS.reduce<Record<string, boolean>>(
+  (acc, item) => {
+    acc[item.key] = item.defaultVisible ?? true;
+    return acc;
+  },
+  {},
+);
+
+const GRID_ROW_HEIGHT = 52;
+const GRID_HEADER_HEIGHT = 56;
 
 interface RankingViewProps {
   items: RankedEtf[];
@@ -66,6 +107,12 @@ function buildSearchText(item: RankedEtf): string {
 
 export function RankingView({ items, pageSize, initialPage, initialSearch = "" }: RankingViewProps) {
   const { mode, toggleColorMode } = useColorMode();
+
+  const [viewMode, setViewMode] = useState<ViewMode>("cards");
+  const [columnVisibilityModel, setColumnVisibilityModel] = useState<GridColumnVisibilityModel>(() => ({
+    ...DEFAULT_COLUMN_VISIBILITY,
+  }));
+  const [copyFeedback, setCopyFeedback] = useState<{ message: string; severity: "success" | "error" } | null>(null);
 
   const [searchValue, setSearchValue] = useState(initialSearch);
   const trimmedInitial = initialSearch.trim();
@@ -190,6 +237,95 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
     return `Mostrando ${startIndex}–${endIndex} de ${totalFormat} ETFs ranqueados.`;
   }, [debouncedValue, endIndex, startIndex, totalItems]);
 
+  const dataGridColumns = useMemo<GridColDef<RankingGridRow>[]>(() => {
+    const baseColumns: GridColDef<RankingGridRow>[] = [
+      {
+        field: "position",
+        headerName: "Posição",
+        headerAlign: "center",
+        align: "center",
+        sortable: false,
+        width: 110,
+      },
+    ];
+
+    const detailColumns: GridColDef<RankingGridRow>[] = DETAIL_COLUMN_CONFIGS.map((column) => ({
+      field: column.key,
+      headerName: column.label,
+      minWidth: 140,
+      flex: 1,
+      sortable: true,
+      renderCell: (params: GridRenderCellParams<RankingGridRow, DetailValue>) =>
+        formatDetailValue(params.value as DetailValue, column.format),
+    }));
+
+    return [...baseColumns, ...detailColumns];
+  }, []);
+
+  const gridRows = useMemo<RankingGridRow[]>(() => {
+    return pageItems.map((item, idx) => {
+      const rowValues: Record<string, DetailValue> = {};
+      DETAIL_COLUMN_CONFIGS.forEach((column) => {
+        rowValues[column.key] = column.getValue(item);
+      });
+
+      return {
+        id: item.symbol,
+        position: startIndex + idx,
+        ...rowValues,
+      };
+    });
+  }, [pageItems, startIndex]);
+
+  const gridHeight = useMemo(() => {
+    const rowCount = gridRows.length || 1;
+    return GRID_HEADER_HEIGHT + rowCount * GRID_ROW_HEIGHT;
+  }, [gridRows.length]);
+
+  const handleViewModeChange = useCallback((_event: React.MouseEvent<HTMLElement>, nextView: ViewMode | null) => {
+    if (nextView) {
+      setViewMode(nextView);
+    }
+  }, []);
+
+  const handleCopyGrid = useCallback(async () => {
+    if (typeof navigator === "undefined" || !navigator.clipboard) {
+      setCopyFeedback({ severity: "error", message: "Funcionalidade de copiar indisponível neste ambiente." });
+      return;
+    }
+
+    const headers = ["Posição", ...DETAIL_COLUMN_CONFIGS.map((column) => column.label)];
+    const rows = filteredItems.map((item, index) => {
+      const columnValues = DETAIL_COLUMN_CONFIGS.map((column) => formatDetailValue(column.getValue(item), column.format));
+      return [`${index + 1}`, ...columnValues].join("\t");
+    });
+
+    const tableText = [headers.join("\t"), ...rows].join("\n");
+
+    try {
+      await navigator.clipboard.writeText(tableText);
+      setCopyFeedback({ severity: "success", message: "Tabela copiada para a área de transferência." });
+    } catch {
+      setCopyFeedback({ severity: "error", message: "Não foi possível copiar a tabela." });
+    }
+  }, [filteredItems]);
+
+  const handleCloseCopyFeedback = useCallback(
+    (_: unknown, reason?: SnackbarCloseReason) => {
+      if (reason === "clickaway") {
+        return;
+      }
+      setCopyFeedback(null);
+    },
+    [],
+  );
+
+  const snackbarContent = copyFeedback ? (
+    <Alert onClose={handleCloseCopyFeedback} severity={copyFeedback.severity} sx={{ width: "100%" }}>
+      {copyFeedback.message}
+    </Alert>
+  ) : undefined;
+
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 } }}>
       <Stack spacing={4}>
@@ -207,7 +343,13 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
               Fundamentos e oportunidade de compra analisados de forma independente da categoria declarada.
             </Typography>
           </Box>
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            alignItems={{ xs: "stretch", sm: "center" }}
+            justifyContent={{ xs: "flex-start", sm: "flex-end" }}
+            flexWrap="wrap"
+          >
             <Tooltip title={`Alternar para modo ${mode === "dark" ? "claro" : "escuro"}`} arrow>
               <Paper
                 variant="outlined"
@@ -218,6 +360,25 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
                 </IconButton>
               </Paper>
             </Tooltip>
+            <ToggleButtonGroup color="primary" size="small" exclusive value={viewMode} onChange={handleViewModeChange}>
+              <ToggleButton value="cards" aria-label="Mostrar cards">
+                <ViewModuleIcon fontSize="small" />
+              </ToggleButton>
+              <ToggleButton value="grid" aria-label="Mostrar tabela">
+                <TableChartIcon fontSize="small" />
+              </ToggleButton>
+            </ToggleButtonGroup>
+            {viewMode === "grid" && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<ContentCopyIcon fontSize="small" />}
+                onClick={handleCopyGrid}
+                disabled={filteredItems.length === 0}
+              >
+                Copiar tabela
+              </Button>
+            )}
             <Chip label={`Total: ${totalItems}`} color="primary" variant="outlined" />
           </Stack>
         </Stack>
@@ -256,139 +417,163 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
           </Stack>
         )}
 
-        <Box
-          sx={{
-            display: "grid",
-            gap: 3,
-            justifyContent: "center",
-            gridTemplateColumns: {
-              xs: "minmax(0, 1fr)",
-              sm: `repeat(2, minmax(0, 320px))`,
-              lg: `repeat(3, minmax(0, 340px))`,
-            },
-          }}
-        >
-          {pageItems.map((item, idx) => {
-            const position = startIndex + idx;
-            const { scores, raw } = item;
-            return (
-              <Box key={item.symbol} sx={{ display: "flex", width: "100%" }}>
-                <Card
-                  variant="outlined"
-                  sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    flexGrow: 1,
-                    width: "100%",
-                    height: "100%",
-                  }}
-                >
-                  <CardActionArea
-                    component={Link}
-                    href={`/etf/${item.symbol}`}
+        {viewMode === "cards" ? (
+          <Box
+            sx={{
+              display: "grid",
+              gap: 3,
+              justifyContent: "center",
+              gridTemplateColumns: {
+                xs: "minmax(0, 1fr)",
+                sm: `repeat(2, minmax(0, 320px))`,
+                lg: `repeat(3, minmax(0, 340px))`,
+              },
+            }}
+          >
+            {pageItems.map((item, idx) => {
+              const position = startIndex + idx;
+              const { scores, raw } = item;
+              return (
+                <Box key={item.symbol} sx={{ display: "flex", width: "100%" }}>
+                  <Card
+                    variant="outlined"
                     sx={{
                       display: "flex",
                       flexDirection: "column",
                       flexGrow: 1,
-                      alignItems: "stretch",
+                      width: "100%",
                       height: "100%",
                     }}
                   >
-                    <CardContent
+                    <CardActionArea
+                      component={Link}
+                      href={`/etf/${item.symbol}`}
                       sx={{
                         display: "flex",
                         flexDirection: "column",
-                        gap: 3,
                         flexGrow: 1,
+                        alignItems: "stretch",
+                        height: "100%",
                       }}
                     >
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <Typography variant="h5" fontWeight={700}>
-                        #{position} • {item.symbol}
-                      </Typography>
-                      <Chip label={`Score ${formatScore(scores.final)}`} color="primary" size="medium" />
-                    </Stack>
+                      <CardContent
+                        sx={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 3,
+                          flexGrow: 1,
+                        }}
+                      >
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                          <Typography variant="h5" fontWeight={700}>
+                            #{position} • {item.symbol}
+                          </Typography>
+                          <Chip label={`Score ${formatScore(scores.final)}`} color="primary" size="medium" />
+                        </Stack>
 
-                    <Typography variant="subtitle1" fontWeight={600}>
-                      {typeof raw?.name === "string" && raw.name.length > 0 ? raw.name : "Nome indisponível"}
-                    </Typography>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Chip
-                        size="small"
-                        label={typeof raw?.etfCategory === "string" && raw.etfCategory.length > 0 ? raw.etfCategory : "Categoria indefinida"}
-                        color="secondary"
-                        variant="outlined"
-                      />
-                      {typeof raw?.issuer === "string" && raw.issuer.length > 0 && (
-                        <Chip size="small" label={raw.issuer} variant="outlined" />
-                      )}
-                    </Stack>
+                        <Typography variant="subtitle1" fontWeight={600}>
+                          {typeof raw?.name === "string" && raw.name.length > 0 ? raw.name : "Nome indisponível"}
+                        </Typography>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Chip
+                            size="small"
+                            label={
+                              typeof raw?.etfCategory === "string" && raw.etfCategory.length > 0
+                                ? raw.etfCategory
+                                : "Categoria indefinida"
+                            }
+                            color="secondary"
+                            variant="outlined"
+                          />
+                          {typeof raw?.issuer === "string" && raw.issuer.length > 0 && (
+                            <Chip size="small" label={raw.issuer} variant="outlined" />
+                          )}
+                        </Stack>
 
-                    <Stack spacing={2} flexGrow={1}>
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                          Fundamentos
-                        </Typography>
-                        <LinearProgress variant="determinate" value={scores.fundamentals} sx={{ mb: 1 }} />
-                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-                          {formatScore(scores.fundamentals)}
-                        </Typography>
-                        <Table size="small">
-                          <TableBody>
-                            {FUNDAMENTAL_DEFINITIONS.map(({ key, label, getter, format }) => (
-                              <TableRow key={key}>
-                                <TableCell sx={{ border: 0 }}>
-                                  <Typography variant="body2" color="text.secondary">
-                                    {label}
-                                  </Typography>
-                                </TableCell>
-                                <TableCell align="right" sx={{ border: 0 }}>
-                                  <Typography variant="body2" fontWeight={600}>
-                                    {formatMetric(getter(item), format)}
-                                  </Typography>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </Box>
-                      <Divider />
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                          Oportunidade
-                        </Typography>
-                        <LinearProgress color="secondary" variant="determinate" value={scores.opportunity} sx={{ mb: 1 }} />
-                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-                          {formatScore(scores.opportunity)}
-                        </Typography>
-                        <Table size="small">
-                          <TableBody>
-                            {OPPORTUNITY_DEFINITIONS.map(({ key, label, getter, format }) => (
-                              <TableRow key={key}>
-                                <TableCell sx={{ border: 0 }}>
-                                  <Typography variant="body2" color="text.secondary">
-                                    {label}
-                                  </Typography>
-                                </TableCell>
-                                <TableCell align="right" sx={{ border: 0 }}>
-                                  <Typography variant="body2" fontWeight={600}>
-                                    {formatMetric(getter(item), format)}
-                                  </Typography>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </Box>
-                    </Stack>
-
-                  </CardContent>
-                </CardActionArea>
-              </Card>
-            </Box>
-            );
-          })}
-        </Box>
+                        <Stack spacing={2} flexGrow={1}>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                              Fundamentos
+                            </Typography>
+                            <LinearProgress variant="determinate" value={scores.fundamentals} sx={{ mb: 1 }} />
+                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+                              {formatScore(scores.fundamentals)}
+                            </Typography>
+                            <Table size="small">
+                              <TableBody>
+                                {FUNDAMENTAL_DEFINITIONS.map(({ key, label, getter, format }) => (
+                                  <TableRow key={key}>
+                                    <TableCell sx={{ border: 0 }}>
+                                      <Typography variant="body2" color="text.secondary">
+                                        {label}
+                                      </Typography>
+                                    </TableCell>
+                                    <TableCell align="right" sx={{ border: 0 }}>
+                                      <Typography variant="body2" fontWeight={600}>
+                                        {formatMetric(getter(item), format)}
+                                      </Typography>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </Box>
+                          <Divider />
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                              Oportunidade
+                            </Typography>
+                            <LinearProgress color="secondary" variant="determinate" value={scores.opportunity} sx={{ mb: 1 }} />
+                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+                              {formatScore(scores.opportunity)}
+                            </Typography>
+                            <Table size="small">
+                              <TableBody>
+                                {OPPORTUNITY_DEFINITIONS.map(({ key, label, getter, format }) => (
+                                  <TableRow key={key}>
+                                    <TableCell sx={{ border: 0 }}>
+                                      <Typography variant="body2" color="text.secondary">
+                                        {label}
+                                      </Typography>
+                                    </TableCell>
+                                    <TableCell align="right" sx={{ border: 0 }}>
+                                      <Typography variant="body2" fontWeight={600}>
+                                        {formatMetric(getter(item), format)}
+                                      </Typography>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </Box>
+                        </Stack>
+                      </CardContent>
+                    </CardActionArea>
+                  </Card>
+                </Box>
+              );
+            })}
+          </Box>
+        ) : (
+          <Paper variant="outlined" sx={{ width: "100%", overflow: "hidden" }}>
+            <DataGrid
+              rows={gridRows}
+              columns={dataGridColumns}
+              hideFooter
+              disableRowSelectionOnClick
+              columnVisibilityModel={columnVisibilityModel}
+              onColumnVisibilityModelChange={setColumnVisibilityModel}
+              rowHeight={GRID_ROW_HEIGHT}
+              columnHeaderHeight={GRID_HEADER_HEIGHT}
+              sx={{
+                height: gridHeight,
+                "& .MuiDataGrid-columnHeaders": {
+                  whiteSpace: "nowrap",
+                },
+              }}
+            />
+          </Paper>
+        )}
 
         {totalItems > 0 && totalPages > 1 && (
           <Stack alignItems="center" spacing={2}>
@@ -408,6 +593,14 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
           </Stack>
         )}
       </Stack>
+      <Snackbar
+        open={copyFeedback !== null}
+        autoHideDuration={4000}
+        onClose={handleCloseCopyFeedback}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        {snackbarContent}
+      </Snackbar>
     </Container>
   );
 }
