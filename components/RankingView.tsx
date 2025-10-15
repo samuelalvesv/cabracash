@@ -288,7 +288,7 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
     }
   }, []);
 
-  const handleCopyGrid = useCallback(async () => {
+  const handleCopyAllGrid = useCallback(async () => {
     if (typeof navigator === "undefined" || !navigator.clipboard) {
       setCopyFeedback({ severity: "error", message: "Funcionalidade de copiar indisponível neste ambiente." });
       return;
@@ -309,6 +309,31 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
       setCopyFeedback({ severity: "error", message: "Não foi possível copiar a tabela." });
     }
   }, [filteredItems]);
+
+  const handleCopyVisibleGrid = useCallback(async () => {
+    if (typeof navigator === "undefined" || !navigator.clipboard) {
+      setCopyFeedback({ severity: "error", message: "Funcionalidade de copiar indisponível neste ambiente." });
+      return;
+    }
+
+    const visibleDetailColumns = DETAIL_COLUMN_CONFIGS.filter((column) => columnVisibilityModel[column.key]);
+    const headers = ["Posição", ...visibleDetailColumns.map((column) => column.label)];
+    const rows = gridRows.map((row) => {
+      const columnValues = visibleDetailColumns.map((column) =>
+        formatDetailValue(row[column.key], column.format),
+      );
+      return [row.position.toString(), ...columnValues].join("\t");
+    });
+
+    const tableText = [headers.join("\t"), ...rows].join("\n");
+
+    try {
+      await navigator.clipboard.writeText(tableText);
+      setCopyFeedback({ severity: "success", message: "Página atual copiada para a área de transferência." });
+    } catch {
+      setCopyFeedback({ severity: "error", message: "Não foi possível copiar a página atual." });
+    }
+  }, [gridRows, columnVisibilityModel]);
 
   const handleCloseCopyFeedback = useCallback(
     (_: unknown, reason?: SnackbarCloseReason) => {
@@ -369,15 +394,26 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
               </ToggleButton>
             </ToggleButtonGroup>
             {viewMode === "grid" && (
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<ContentCopyIcon fontSize="small" />}
-                onClick={handleCopyGrid}
-                disabled={filteredItems.length === 0}
-              >
-                Copiar tabela
-              </Button>
+              <Stack direction="row" spacing={1}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<ContentCopyIcon fontSize="small" />}
+                  onClick={handleCopyVisibleGrid}
+                  disabled={gridRows.length === 0}
+                >
+                  Copiar página
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<ContentCopyIcon fontSize="small" />}
+                  onClick={handleCopyAllGrid}
+                  disabled={filteredItems.length === 0}
+                >
+                  Copiar tudo
+                </Button>
+              </Stack>
             )}
             <Chip label={`Total: ${totalItems}`} color="primary" variant="outlined" />
           </Stack>
