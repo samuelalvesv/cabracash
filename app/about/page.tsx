@@ -28,59 +28,56 @@ const BENEFIT_DETAILS: BenefitDetail[] = [
   {
     title: "Defesa cambial",
     icon: <SavingsIcon color="primary" />,
-    description: "Reduz a exposição exclusiva ao real, criando colchão contra desvalorização cambial.",
+    description: "Manter parte do patrimônio em dólar ajuda a blindar a carteira quando o real perde força.",
   },
   {
     title: "Diversificação global",
     icon: <PublicIcon color="secondary" />,
-    description: "Permite acessar economias maduras, setores inovadores e estratégias impossíveis no mercado local.",
+    description: "Você passa a participar de economias e setores que não existem na Bolsa brasileira.",
   },
   {
     title: "Eficiência operacional",
     icon: <BarChartIcon color="action" />,
-    description: "ETFs costumam oferecer taxas menores, transparência diária e rebalanceamentos automatizados.",
+    description: "Um ETF junta dezenas de ativos em um ticker só, com custo baixo e rebalanceamento automático.",
   },
   {
     title: "Liquidez em dólar",
     icon: <TimelineIcon color="secondary" />,
-    description: "Liquidez global em dólar simplifica aportes recorrentes e saques quando necessário.",
+    description: "A negociação em dólar facilita aportes e resgates rápidos diretamente no mercado americano.",
   },
 ];
 
 const RANKING_OVERVIEW: ContentSection[] = [
   {
-    title: "Fundamentos: estrutura sólida (55%)",
-    description:
-      "Medimos qualidade estrutural do ETF para garantir que a base do investimento é resiliente ao longo prazo.",
+    title: "Fundamentos fortes (55%)",
+    description: "A maior parte da nota privilegia ETFs grandes, baratos e bem administrados.",
     icon: <SecurityIcon fontSize="large" color="primary" />,
     points: [
-      "Custos e eficiência do emissor: expense ratio invertido e issuer score.",
-      "Liquidez em dólares e em cotas para facilitar entradas e saídas.",
-      "Diversificação da carteira, patrimônio sob gestão e consistência de dividendos.",
-      "Sharpe, Sortino, beta balanceado e volatilidade (ATR/Close).",
+      "Taxa de administração baixa e gestor reconhecido.",
+      "ETF com muitos ativos e volume alto para negociar sem aperto.",
+      "Histórico estável de dividendos e risco controlado.",
+      "Índice bem seguido, sem grandes desvios do desempenho esperado.",
     ],
   },
   {
-    title: "Oportunidade: timing e momentum (45%)",
-    description:
-      "Complementamos fundamentos com sinais de preço e volume para identificar ETFs em pontos de entrada interessantes.",
+    title: "Momento de compra (45%)",
+    description: "O restante da nota mostra se o preço atual parece convidativo para entrar.",
     icon: <TimelineIcon fontSize="large" color="secondary" />,
     points: [
-      "Variações de curto prazo, distância aos extremos de 52 semanas e médias móveis.",
-      "RSI diário e volume relativo medem saturação e interesse do mercado.",
-      "Retorno de 1 mês e movimentos pré/pós mercado ajudam a capturar gaps.",
+      "Preço em leve desconto versus as máximas recentes.",
+      "Indicadores como RSI sugerem força compradora saudável.",
+      "Volume maior que o normal confirma interesse real do mercado.",
     ],
   },
   {
-    title: "Processo transparente",
-    description:
-      "Todos os indicadores, pesos e transformações estão documentados. Métricas ausentes recebem nota neutra para manter justiça.",
+    title: "Processo simples e transparente",
+    description: "Transformamos todos os números em notas de 0 a 100, sem segredos.",
     icon: <QueryStatsIcon fontSize="large" color="action" />,
     points: [
-      "Winsorização entre 2% e 98% para reduzir ruído de outliers.",
-      "Normalização 0–100 com inversões de sinal quando menor = melhor.",
-      "Pontuação final = 0,55 * Fundamentos + 0,45 * Oportunidade.",
-      "Empates resolvidos por Fundamentos e, em seguida, símbolo do ETF.",
+      "Cada métrica é normalizada para facilitar a comparação.",
+      "A nota final é 55% fundamentos + 45% oportunidade.",
+      "Se faltar um dado, o ETF recebe nota neutra naquele item.",
+      "Empates são resolvidos pela melhor nota de fundamentos.",
     ],
   },
 ];
@@ -96,15 +93,15 @@ export default function AboutPage() {
             gutterBottom
             sx={{ fontSize: { xs: "2rem", md: "2.75rem" } }}
           >
-            Porque dolarizar o patrimônio com ETFs pode ser um divisor de águas
+            Por que dolarizar com ETFs faz diferença
           </Typography>
           <Typography
             variant="h6"
             color="text.secondary"
             sx={{ fontSize: { xs: "1rem", md: "1.25rem" } }}
           >
-            Ao diversificar em ETFs listados nos EUA você protege o poder de compra, amplia horizontes setoriais e aproveita a
-            eficiência de fundos automatizados — sem precisar escolher ações individuais.
+            Levar parte da carteira para ETFs americanos protege o poder de compra e dá acesso a mercados e tecnologias que não
+            existem no Brasil — tudo sem ter que garimpar ação por ação.
           </Typography>
         </Box>
 
@@ -146,16 +143,16 @@ export default function AboutPage() {
                 gap: 2,
               }}
             >
-              <Typography variant="subtitle2" color="primary">
-                Como o CabraCash ajuda nisso?
-              </Typography>
-              <Typography variant="h5" fontWeight={700}>
-                Ranking transparente de ETFs americanos
-              </Typography>
-              <Typography variant="body1" color="text.secondary">
-                Aplicamos uma metodologia própria que combina a robustez de fundamentos com sinais de oportunidade.
-                Dessa forma, você identifica ETFs que equilibram qualidade e bom ponto de entrada.
-              </Typography>
+            <Typography variant="subtitle2" color="primary">
+              Como o CabraCash ajuda nisso?
+            </Typography>
+            <Typography variant="h5" fontWeight={700}>
+              Como o ranking funciona
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              O CabraCash transforma dezenas de números em duas notas fáceis de entender: quão sólido é o ETF e se o preço
+              atual parece um bom momento de compra. Assim você compara rapidamente, sem planilhas.
+            </Typography>
               <Stack spacing={1.5}>
                 <Stack direction="row" spacing={1} alignItems="center">
                   <SecurityIcon color="primary" fontSize="small" />
@@ -163,22 +160,23 @@ export default function AboutPage() {
                     Fundamentos: 55%
                   </Typography>
                 </Stack>
-                <Typography variant="body2" color="text.secondary">
-                  Custos, liquidez composta, força do emissor, risco/retorno (Sharpe + Sortino) e estabilidade de dividendos.
-                </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Olhamos para taxa do fundo, tamanho e histórico do emissor, além de dividendos e estabilidade da carteira.
+              </Typography>
                 <Stack direction="row" spacing={1} alignItems="center">
                   <TimelineIcon color="secondary" fontSize="small" />
                   <Typography variant="body2" fontWeight={600}>
                     Oportunidade: 45%
                   </Typography>
                 </Stack>
-                <Typography variant="body2" color="text.secondary">
-                  Descontos vs. 52 semanas, momentum de 1 dia/1 mês, pulso de volume e gaps pré/pós-market com filtros anti value-trap.
-                </Typography>
-              </Stack>
               <Typography variant="body2" color="text.secondary">
-                Pesos, fórmulas e tratamento de dados estão descritos em detalhes na documentação. A média ponderada 55/45 inclui penalizações automáticas para quedas sem fluxo e desempate por fundamentos.
+                Avaliamos desconto recente, volume acima do normal e força compradora para evitar quedas sem suporte.
               </Typography>
+          </Stack>
+          <Typography variant="body2" color="text.secondary">
+            A nota final é a soma ponderada desses dois blocos (55% + 45%) e se atualiza automaticamente sempre que chegam dados
+            novos.
+          </Typography>
             </Paper>
           </Grid>
         </Grid>
@@ -188,10 +186,10 @@ export default function AboutPage() {
         <Stack spacing={4}>
           <Box>
             <Typography variant="h4" fontWeight={700} gutterBottom>
-              Metodologia em 4 passos
+              Como chegamos ao Top 12
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Resumimos o pipeline descrito na documentação para que você entenda como transformamos dados brutos em um ranking confiável.
+              Veja o caminho que cada ETF percorre até aparecer no topo da lista:
             </Typography>
           </Box>
           <Grid container spacing={3}>
