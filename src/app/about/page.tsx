@@ -70,7 +70,7 @@ const RANKING_OVERVIEW: ContentSection[] = [
     ],
   },
   {
-    title: "Processo simples e transparente",
+    title: "Score final transparente",
     description: "Transformamos todos os números em notas de 0 a 100, sem segredos.",
     icon: <QueryStatsIcon fontSize="large" color="action" />,
     points: [
