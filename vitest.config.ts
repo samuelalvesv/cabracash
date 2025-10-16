@@ -16,7 +16,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@": fileURLToPath(new URL("./", import.meta.url)),
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
       "@mui/x-data-grid/esm/index.css": fileURLToPath(new URL("./tests/styleMock.ts", import.meta.url)),
     },
   },

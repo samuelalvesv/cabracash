@@ -1,61 +1,142 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CabraCash
 
-## Getting Started
+CabraCash é um site em Next.js que entrega um ranking imparcial de ETFs americanos. Todos os fundos são avaliados com a mesma metodologia — descrita em `docs/etf_ranking.md` — combinando indicadores de fundamentos (55%) e de oportunidade (45%). Assim, o investidor visualiza em segundos uma lista comparável, sem depender de planilhas em Excel.
 
-First, run the development server:
+## Requisitos
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Node.js 18.18 ou superior
+- NPM (o projeto usa `package-lock.json`)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. A página já usa [MUI](https://mui.com/) com um `ThemeProvider` configurado em `app/layout.tsx` e exibe o ranking paginado calculado no backend.
-
-## APIs internas
-
-- `GET /api/market`: proxy para o endpoint da StockAnalysis que retorna o payload completo de ETFs no formato:
-  ```json
-  {
-    "status": 200,
-    "data": {
-      "data": {
-        "AOK": { "...": "..." },
-        "SPY": { "...": "..." }
-      }
-    }
-  }
-  ```
-- `GET /api/market/ranking`: processa os dados brutos, aplica a metodologia descrita em `etf_ranking.md` (winsorização 2–98%, normalização 0–100, pesos de Fundamentos e Oportunidade) e devolve a lista ordenada por `FinalScore`.
-- Rota de detalhes: `GET /etf/[symbol]` (via App Router) reaproveita o ranking calculado, exibe todos os indicadores disponíveis agrupados por categoria e mostra a decomposição das notas de Fundamentos e Oportunidade. Basta clicar em qualquer card da tela principal para acessar.
-
-## Scripts úteis
+## Instalação
 
 ```bash
-npm run dev    # servidor Next.js (Turbopack)
-npm run lint   # ESLint
-npm run test   # Vitest (pipeline de ranking)
+npm install
 ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Scripts principais
 
-## Learn More
+```bash
+npm run dev     # servidor de desenvolvimento (Next.js + Turbopack)
+npm run build   # build de produção
+npm run start   # servidor de produção
+npm run lint    # análise estática (ESLint)
+npm run test    # suíte de testes (Vitest + @testing-library)
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Estrutura de pastas
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+.
+├── docs/
+│   └── etf_ranking.md
+├── src/
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── market/
+│   │   │   │   ├── route.ts
+│   │   │   │   └── __tests__/route.test.ts
+│   │   │   └── market/ranking/
+│   │   │       ├── route.ts
+│   │   │       └── __tests__/route.test.ts
+│   │   ├── etf/
+│   │   │   └── [symbol]/
+│   │   │       ├── loading.tsx
+│   │   │       ├── not-found.tsx
+│   │   │       └── page.tsx
+│   │   ├── layout.tsx
+│   │   ├── loading.tsx
+│   │   └── page.tsx
+│   ├── components/
+│   │   └── ui/
+│   │       ├── Header.tsx
+│   │       └── __tests__/Header.test.tsx
+│   ├── features/
+│   │   └── ranking/
+│   │       ├── components/
+│   │       │   ├── EtfDetailsSkeleton.tsx
+│   │       │   ├── EtfDetailsView.tsx
+│   │       │   ├── RankingSkeleton.tsx
+│   │       │   ├── RankingView.tsx
+│   │       │   └── __tests__/
+│   │       │       ├── EtfDetailsView.test.tsx
+│   │       │       └── RankingView.test.tsx
+│   │       └── server/
+│   │           ├── cache.ts
+│   │           ├── detailSections.ts
+│   │           ├── metricDefinitions.ts
+│   │           ├── scoring.ts
+│   │           ├── types.ts
+│   │           ├── utils.ts
+│   │           ├── validation.ts
+│   │           └── __tests__/
+│   │               ├── cache.test.ts
+│   │               ├── fetchRankedEtfs.test.ts
+│   │               └── scoring.test.ts
+│   ├── services/
+│   │   ├── market-data.ts
+│   │   └── __tests__/market-data.test.ts
+│   ├── shared/
+│   │   ├── hooks/useColorMode.ts
+│   │   └── utils/formatters.ts
+│   └── theme/
+│       ├── ThemeRegistry.tsx
+│       ├── createAppTheme.ts
+│       └── __tests__/ThemeRegistry.test.tsx
+├── tests/
+│   └── styleMock.ts
+├── AGENTS.md
+├── README.md
+└── package.json
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Importações absolutas usam o alias `@/` apontando para `src/`.
 
-## Deploy on Vercel
+## Fluxo de dados
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. `src/services/market-data.ts` busca o payload bruto de ETFs diretamente da StockAnalysis.
+2. `src/features/ranking/server/scoring.ts` processa o payload, normaliza indicadores conforme a metodologia e aplica cache in-memory (TTL de 15 minutos) para evitar refetchs constantes.
+3. As rotas de API (`/api/market`, `/api/market/ranking`) e as páginas (`src/app/page.tsx`, `src/app/etf/[symbol]/page.tsx`) consomem o caso de uso para exibir os dados ao usuário.
+4. Componentes client-side (`RankingView`, `EtfDetailsView`) trabalham os dados em UI rica: filtros, paginação, DataGrid, breakdowns e skeletons.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Páginas e navegação
+
+- **Ranking (`/`)**  
+  A tela principal oferece duas visualizações:
+  - **Cards**: cada ETF aparece com destaque para o ticker, nome, notas de Fundamentos/Oportunidade e principais métricas, facilitando uma leitura rápida estilo “painel”.
+  - **Tabela (DataGrid)**: quem prefere trabalhar em modo tabular encontra colunas personalizáveis, filtros por score mínimo e busca livre.
+  Ambos os modos compartilham paginação e filtros sincronizados, permitindo alternar sem perder o contexto.
+
+- **Detalhes (`/etf/[symbol]`)**  
+  Ao clicar em um ETF, a página de detalhes mostra a decomposição completa do score: indicadores brutos, métricas ponderadas, chips de classificação e uma visão organizada em seções (identificação, liquidez, dividendos, risco, momento, etc.). Há um botão de retorno ao ranking e skeletons para carga suave.
+
+- **Sobre (`/about`)**  
+  Explica em linguagem direta por que diversificar com ETFs dolarizados, como o ranking funciona e quais pesos/indicadores são utilizados. Inclui CTA para voltar ao ranking, reforçando a jornada do usuário.
+
+Essas páginas compartilham o `Header` com seleção de tema claro/escuro e navegação responsiva.
+
+## Testes
+
+A suíte roda com Vitest e Testing Library. Abrange:
+
+- Lógica de ranking e cache (`src/features/ranking/server/__tests__`).
+- Rotas de API (`src/app/api/**/__tests__`).
+- Componentes principais (`src/features/ranking/components/__tests__`, `src/components/ui/__tests__`).
+- Tema e persistência de modo (`src/theme/__tests__`).
+
+Execute localmente com:
+
+```bash
+npm run test
+```
+
+## Contribuições e estilo
+
+- Use `npm run lint` antes de enviar alterações.
+- Prefira manter componentes, hooks e testes próximos do domínio (`features/` para regras e UI específicas; `shared/` para blocos reutilizáveis).
+- Atualize `docs/etf_ranking.md` quando a metodologia mudar.
+
+## Recursos adicionais
+
+- [Documentação Next.js](https://nextjs.org/docs)
+- [Material UI](https://mui.com/)
+- [Vitest](https://vitest.dev/)
