@@ -26,7 +26,11 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="pt-br">
+      <head>
+        <title>CabraCash</title>
+        <meta name="google-adsense-account" content="ca-pub-4559716345390200" />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <ThemeRegistry>
           <Header />
