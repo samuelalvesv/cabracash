@@ -39,6 +39,7 @@ import type { RankedEtf } from "@/features/ranking/server/types";
 import { FUNDAMENTAL_DEFINITIONS, OPPORTUNITY_DEFINITIONS } from "@/features/ranking/server/metricDefinitions";
 import { DETAIL_SECTIONS, formatDetailValue, type DetailItemConfig, type DetailValue } from "@/features/ranking/server/detailSections";
 import { formatMetric, formatScore } from "@/shared/utils/formatters";
+import { loadRankingFilters, saveRankingFilters } from "@/features/ranking/components/rankingFilterStorage";
 
 type ViewMode = "cards" | "grid";
 
@@ -167,6 +168,25 @@ export function RankingView({
   const thresholdsActive = minFundamentals > 0 || minOpportunity > 0;
   const previousThresholdsRef = useRef({ fundamentals: normalizedInitialFundamentals, opportunity: normalizedInitialOpportunity });
 
+  const activeFilterQueryString = useMemo(() => {
+    const params = new URLSearchParams();
+    const trimmedSearch = debouncedValue.trim();
+    if (trimmedSearch.length > 0) {
+      params.set("search", trimmedSearch);
+    }
+    if (minFundamentals > 0) {
+      params.set("minFundamentals", minFundamentals.toString());
+    }
+    if (minOpportunity > 0) {
+      params.set("minOpportunity", minOpportunity.toString());
+    }
+    if (page > 1) {
+      params.set("page", page.toString());
+    }
+    const query = params.toString();
+    return query.length > 0 ? `?${query}` : "";
+  }, [debouncedValue, minFundamentals, minOpportunity, page]);
+
   useEffect(() => {
     if (typeof window === "undefined") {
       return undefined;
@@ -252,9 +272,59 @@ export function RankingView({
       const nextUrl = nextQuery.length > 0 ? `${basePath}?${nextQuery}` : basePath;
 
       window.history.replaceState(null, "", nextUrl);
+      saveRankingFilters({
+        page: nextPage,
+        search: nextSearch,
+        minFundamentals: fundamentalsValue,
+        minOpportunity: opportunityValue,
+      });
     },
     [page, debouncedValue, minFundamentals, minOpportunity],
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (window.location.search.length > 1) {
+      return;
+    }
+
+    const hasInitialFilters =
+      initialPage !== 1 || initialSearch.trim().length > 0 || initialMinFundamentals > 0 || initialMinOpportunity > 0;
+    if (hasInitialFilters) {
+      return;
+    }
+
+    const stored = loadRankingFilters();
+    if (!stored) {
+      return;
+    }
+
+    const safePage = Math.max(1, Number.isFinite(stored.page) ? Math.round(stored.page) : 1);
+    const safeSearch = stored.search;
+    const trimmedSearch = safeSearch.trim();
+    const safeFundamentals = clampScore(stored.minFundamentals ?? 0);
+    const safeOpportunity = clampScore(stored.minOpportunity ?? 0);
+
+    previousSearchRef.current = trimmedSearch;
+    previousThresholdsRef.current = { fundamentals: safeFundamentals, opportunity: safeOpportunity };
+
+    setSearchValue(safeSearch);
+    setDebouncedValue(trimmedSearch);
+    setDebouncedQuery(trimmedSearch.toLowerCase());
+    setPage(safePage);
+    setMinFundamentalsInput(safeFundamentals > 0 ? safeFundamentals.toString() : "");
+    setMinOpportunityInput(safeOpportunity > 0 ? safeOpportunity.toString() : "");
+
+    updateUrl({
+      page: safePage,
+      search: trimmedSearch,
+      fundamentals: safeFundamentals,
+      opportunity: safeOpportunity,
+    });
+  }, [initialPage, initialSearch, initialMinFundamentals, initialMinOpportunity, updateUrl]);
 
   // Reset page when search changes and update URL
   useEffect(() => {
@@ -600,7 +670,7 @@ export function RankingView({
                   >
                     <CardActionArea
                       component={Link}
-                      href={`/etf/${item.symbol}`}
+                      href={`/etf/${item.symbol}${activeFilterQueryString}`}
                       sx={{
                         display: "flex",
                         flexDirection: "column",

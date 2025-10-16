@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import RankingView from "@/features/ranking/components/RankingView";
 import { FUNDAMENTAL_DEFINITIONS, OPPORTUNITY_DEFINITIONS } from "@/features/ranking/server/metricDefinitions";
@@ -15,6 +15,15 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+beforeEach(() => {
+  window.sessionStorage.clear();
+  window.history.replaceState(null, "", "/");
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  window.sessionStorage.clear();
+});
 function buildSampleEtf(symbol: string): RankedEtf {
   const features: RankedEtf["features"] = {
     expenseRatio: 0.05,
@@ -140,5 +149,35 @@ describe("RankingView", () => {
     expect(screen.getAllByText(/AAA/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/BBB/)).toBeNull();
     expect(screen.queryByText(/Nenhum ETF encontrado/)).toBeNull();
+  });
+
+  it("restaura filtros salvos quando não há parâmetros na URL", async () => {
+    const first = buildSampleEtf("AAA");
+    const second = buildSampleEtf("BBB");
+
+    window.sessionStorage.setItem(
+      "ranking:filters",
+      JSON.stringify({
+        page: 2,
+        search: "BBB",
+        minFundamentals: 65,
+        minOpportunity: 45,
+      }),
+    );
+
+    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+
+    render(
+      <ThemeRegistry>
+        <RankingView items={[first, second]} pageSize={1} initialPage={1} />
+      </ThemeRegistry>,
+    );
+
+    expect(replaceStateSpy).toHaveBeenCalled();
+    const updatedUrls = replaceStateSpy.mock.calls.map((call) => call[2] as string);
+    expect(updatedUrls.some((url) => url?.includes("search=BBB"))).toBe(true);
+    expect(updatedUrls.some((url) => url?.includes("minFundamentals=65"))).toBe(true);
+    expect(updatedUrls.some((url) => url?.includes("minOpportunity=45"))).toBe(true);
+    expect(updatedUrls.some((url) => url?.includes("page=2"))).toBe(true);
   });
 });
