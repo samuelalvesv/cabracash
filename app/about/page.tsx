@@ -186,7 +186,7 @@ export default function AboutPage() {
         <Stack spacing={4}>
           <Box>
             <Typography variant="h4" fontWeight={700} gutterBottom>
-              Como chegamos ao Top 12
+                Metodologia em 3 passos
             </Typography>
             <Typography variant="body1" color="text.secondary">
               Veja o caminho que cada ETF percorre até aparecer no topo da lista:
