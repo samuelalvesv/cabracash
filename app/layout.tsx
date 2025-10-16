@@ -25,6 +25,9 @@ export const metadata: Metadata = {
       { url: "/favicon.ico", rel: "shortcut icon" },
     ],
   },
+  other: {
+    "google-adsense-account": "ca-pub-4559716345390200",
+  },
 };
 
 export default function RootLayout({
@@ -34,10 +37,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-br">
-      <head>
-        <title>CabraCash</title>
-        <meta name="google-adsense-account" content="ca-pub-4559716345390200" />
-      </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <ThemeRegistry>
           <Header />
