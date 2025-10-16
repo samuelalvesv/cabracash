@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React, { useMemo, useState } from "react";
@@ -58,14 +59,43 @@ export default function Header(): React.ReactElement {
             sx={{
               textDecoration: "none",
               color: "inherit",
-              display: "flex",
+              display: "inline-flex",
               alignItems: "center",
               mr: { xs: 2, md: 4 },
             }}
           >
-            <Typography variant="h6" fontWeight={700}>
-              CabraCash
-            </Typography>
+            <Stack
+              direction="row"
+              alignItems="center"
+              spacing={0.2}
+              sx={{
+                px: 1,
+                py: 0,
+                borderRadius: 3,
+                border: 1,
+                borderColor: "divider",
+                bgcolor: "rgba(255, 255, 255, 0)",
+                color: "inherit",
+                transition: "background-color 0.2s ease",
+                boxShadow: "none",
+                "&:hover": {
+                  bgcolor: (theme) =>
+                    theme.palette.mode === "dark"
+                      ? "rgba(255, 255, 255, 0.08)"
+                      : theme.palette.action.hover,
+                },
+              }}
+            >
+              <Image src="/logo.png" alt="CabraCash" width={56} height={56} priority style={{ borderRadius: "50%" }} />
+              <Stack spacing={0.25} lineHeight={1}>
+                <Typography variant="h6" fontWeight={300} sx={{ lineHeight: 1 }}>
+                  CABRA
+                </Typography>
+                <Typography variant="h6" fontWeight={300} sx={{ lineHeight: 1 }}>
+                  CASH
+                </Typography>
+              </Stack>
+            </Stack>
           </Box>
 
           <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center", gap: 2 }}>
