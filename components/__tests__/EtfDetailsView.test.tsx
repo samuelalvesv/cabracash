@@ -182,5 +182,6 @@ describe("EtfDetailsView", () => {
     expect(screen.getByText(/Score Final/)).toBeInTheDocument();
     expect(screen.getByText(/Componentes de Fundamentos/)).toBeInTheDocument();
     expect(screen.getByText(/Componentes de Oportunidade/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /voltar/i })).toBeInTheDocument();
   });
 });

@@ -6,8 +6,8 @@ import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
-  Breadcrumbs,
   Box,
+  Button,
   Card,
   CardContent,
   Chip,
@@ -25,6 +25,7 @@ import {
   useTheme,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 import { formatScore } from "@/lib/formatters";
 import { FUNDAMENTAL_DEFINITIONS, OPPORTUNITY_DEFINITIONS } from "@/lib/ranking/metricDefinitions";
@@ -77,18 +78,31 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 } }}>
       <Stack spacing={4}>
-        <Breadcrumbs aria-label="breadcrumb">
-          <Link href="/" style={{ textDecoration: "none", color: "inherit" }}>
-            <Typography color="text.secondary">Ranking</Typography>
-          </Link>
-          <Typography color="text.primary">{etf.symbol}</Typography>
-        </Breadcrumbs>
-
         <Stack spacing={2}>
-          <Typography variant="h3" fontWeight={700}>
-            {etf.symbol}
-          </Typography>
-          <Typography variant="h5" fontWeight={600}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
+            <Typography
+              variant="h4"
+              fontWeight={700}
+              sx={{ fontSize: { xs: "1.8rem", md: "2.2rem" } }}
+            >
+              {etf.symbol}
+            </Typography>
+            <Button
+              component={Link}
+              href="/"
+              variant="outlined"
+              color="inherit"
+              startIcon={<ArrowBackIcon fontSize="small" />}
+              sx={{ flexShrink: 0, borderRadius: 999 }}
+            >
+              Voltar
+            </Button>
+          </Stack>
+          <Typography
+            variant="h6"
+            fontWeight={600}
+            sx={{ fontSize: { xs: "1rem", md: "1.25rem" } }}
+          >
             {etf.raw.name ?? "Nome indisponível"}
           </Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap">
