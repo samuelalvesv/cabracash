@@ -1,22 +1,66 @@
-import { fetchMarketData } from "@/services/market-data";
+import { fetchMarketData, MARKET_DATA_FIELDS } from "@/services/market-data";
 
 type IndicatorCheck = {
   label: string;
   getter: (record: Record<string, unknown>) => unknown;
 };
 
-const INDICATOR_CHECKS: IndicatorCheck[] = [
-  { label: "Assets", getter: (record) => record.assets },
-  { label: "Asset Class", getter: (record) => record.assetClass },
-  { label: "Stock Price", getter: (record) => record.price ?? record.close },
-  { label: "Holdings", getter: (record) => record.holdings ?? record.holdingsCount },
-  { label: "Volume", getter: (record) => record.volume },
-  { label: "1D Change", getter: (record) => record.ch1d ?? deriveCh1d(record) },
-  { label: "Premarket Close", getter: (record) => record.premarketClose ?? record.preClose },
-  { label: "Premarket % Change", getter: (record) => record.premarketChangePercent },
-  { label: "After-hours % Change", getter: (record) => record.afterHoursChangePercent ?? record.postmarketChangePercent },
-  { label: "After-hours Price", getter: (record) => record.afterHoursPrice ?? record.postmarketPrice },
+type MarketDataField = (typeof MARKET_DATA_FIELDS)[number];
+
+type IndicatorConfig = {
+  label: string;
+  keys: MarketDataField[];
+  getter?: (record: Record<string, unknown>) => unknown;
+};
+
+const BASE_VALIDATION_INDICATORS: IndicatorConfig[] = [
+  { label: "Name", keys: ["name"] },
+  { label: "Assets", keys: ["assets"] },
+  { label: "Asset Class", keys: ["assetClass"] },
+  { label: "Stock Price", keys: ["price", "close"] },
+  { label: "Holdings", keys: ["holdings", "holdingsCount"] },
+  { label: "Volume", keys: ["volume"] },
+  {
+    label: "1D Change",
+    keys: ["ch1d", "close", "preClose"],
+    getter: (record) => record.ch1d ?? deriveCh1d(record),
+  },
+  { label: "Premarket Close", keys: ["premarketClose", "preClose"] },
+  { label: "Premarket % Change", keys: ["premarketChangePercent"] },
+  {
+    label: "After-hours % Change",
+    keys: ["afterHoursChangePercent", "postmarketChangePercent"],
+  },
+  { label: "After-hours Price", keys: ["afterHoursPrice", "postmarketPrice"] },
+  { label: "After-hours Close", keys: ["afterHoursClose", "postClose"] },
 ];
+
+const BASE_KEYS = new Set<MarketDataField>(BASE_VALIDATION_INDICATORS.flatMap((indicator) => indicator.keys));
+
+export const VALIDATION_INDICATORS: IndicatorConfig[] = [
+  ...BASE_VALIDATION_INDICATORS,
+  ...MARKET_DATA_FIELDS.filter((field) => !BASE_KEYS.has(field)).map<IndicatorConfig>((field) => ({
+    label: field,
+    keys: [field],
+  })),
+];
+
+function buildGetterFromKeys(keys: MarketDataField[]): (record: Record<string, unknown>) => unknown {
+  return (record) => {
+    for (const key of keys) {
+      const value = record[key];
+      if (!isNullish(value)) {
+        return value;
+      }
+    }
+    return record[keys[0]];
+  };
+}
+
+const INDICATOR_CHECKS: IndicatorCheck[] = VALIDATION_INDICATORS.map(({ label, keys, getter }) => ({
+  label,
+  getter: getter ?? buildGetterFromKeys(keys),
+}));
 
 function isNullish(value: unknown): boolean {
   return value === null || value === undefined || value === "";
