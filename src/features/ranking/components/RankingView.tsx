@@ -468,7 +468,7 @@ export function RankingView({
               Ranking de ETFs
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Fundamentos e oportunidade de compra analisados de forma independente da categoria declarada.
+              Fundamentos e oportunidade de compra analisados de forma independente e inteligente.
             </Typography>
           </Box>
           <Stack
