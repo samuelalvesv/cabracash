@@ -18,6 +18,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "CabraCash",
   description: "CabraCash ETF ranking",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
