@@ -167,6 +167,10 @@ export function RankingView({
   const minOpportunity = useMemo(() => parseThresholdInput(minOpportunityInput), [minOpportunityInput]);
   const thresholdsActive = minFundamentals > 0 || minOpportunity > 0;
   const previousThresholdsRef = useRef({ fundamentals: normalizedInitialFundamentals, opportunity: normalizedInitialOpportunity });
+  const hasActiveFilters = searchValue.trim().length > 0 || thresholdsActive;
+  const updateUrlRef = useRef<
+    (overrides?: Partial<{ page: number; search: string; fundamentals: number; opportunity: number }>) => void
+  >(() => {});
 
   const activeFilterQueryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -283,6 +287,10 @@ export function RankingView({
   );
 
   useEffect(() => {
+    updateUrlRef.current = updateUrl;
+  }, [updateUrl]);
+
+  useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
@@ -318,13 +326,13 @@ export function RankingView({
     setMinFundamentalsInput(safeFundamentals > 0 ? safeFundamentals.toString() : "");
     setMinOpportunityInput(safeOpportunity > 0 ? safeOpportunity.toString() : "");
 
-    updateUrl({
+    updateUrlRef.current?.({
       page: safePage,
       search: trimmedSearch,
       fundamentals: safeFundamentals,
       opportunity: safeOpportunity,
     });
-  }, [initialPage, initialSearch, initialMinFundamentals, initialMinOpportunity, updateUrl]);
+  }, [initialPage, initialSearch, initialMinFundamentals, initialMinOpportunity]);
 
   // Reset page when search changes and update URL
   useEffect(() => {
@@ -405,6 +413,18 @@ export function RankingView({
   const handleOpportunityBlur = useCallback(() => {
     setMinOpportunityInput((current) => sanitizeThresholdInput(current));
   }, []);
+
+  const handleClearFilters = useCallback(() => {
+    setSearchValue("");
+    setDebouncedValue("");
+    setDebouncedQuery("");
+    setMinFundamentalsInput("");
+    setMinOpportunityInput("");
+    previousSearchRef.current = "";
+    previousThresholdsRef.current = { fundamentals: 0, opportunity: 0 };
+    setPage(1);
+    updateUrl({ page: 1, search: "", fundamentals: 0, opportunity: 0 });
+  }, [updateUrl]);
 
   const dataGridColumns = useMemo<GridColDef<RankingGridRow>[]>(() => {
     const baseColumns: GridColDef<RankingGridRow>[] = [
@@ -560,7 +580,12 @@ export function RankingView({
           </Stack>
         </Stack>
 
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "stretch", md: "flex-start" }} sx={{ width: "100%" }}>
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={2}
+          alignItems={{ xs: "stretch", md: "flex-start" }}
+          sx={{ width: "100%" }}
+        >
           <TextField
             value={searchValue}
             onChange={(event) => setSearchValue(event.target.value)}
@@ -585,18 +610,21 @@ export function RankingView({
             <TextField
               label="Fundamentos mín."
               value={minFundamentalsInput}
-              onChange={(event) => setMinFundamentalsInput(event.target.value)}
+              onChange={(event) => {
+                const digitsOnly = event.target.value.replace(/\D/g, "");
+                setMinFundamentalsInput(digitsOnly);
+              }}
               onBlur={handleFundamentalsBlur}
               placeholder="0"
-              type="number"
+              type="text"
               sx={{ width: { xs: "100%", sm: "100%" }, flexGrow: 1 }}
               slotProps={{
                 input: {
                   endAdornment: <InputAdornment position="end">%</InputAdornment>,
                   inputProps: {
-                    inputMode: "decimal",
-                    min: 0,
-                    max: 100,
+                    inputMode: "numeric",
+                    pattern: "[0-9]*",
+                    maxLength: 3,
                   },
                 },
               }}
@@ -604,23 +632,52 @@ export function RankingView({
             <TextField
               label="Oportunidade mín."
               value={minOpportunityInput}
-              onChange={(event) => setMinOpportunityInput(event.target.value)}
+              onChange={(event) => {
+                const digitsOnly = event.target.value.replace(/\D/g, "");
+                setMinOpportunityInput(digitsOnly);
+              }}
               onBlur={handleOpportunityBlur}
               placeholder="0"
-              type="number"
+              type="text"
               sx={{ width: { xs: "100%", sm: "100%" }, flexGrow: 1 }}
               slotProps={{
                 input: {
                   endAdornment: <InputAdornment position="end">%</InputAdornment>,
                   inputProps: {
-                    inputMode: "decimal",
-                    min: 0,
-                    max: 100,
+                    inputMode: "numeric",
+                    pattern: "[0-9]*",
+                    maxLength: 3,
                   },
                 },
               }}
             />
           </Stack>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={handleClearFilters}
+            disabled={!hasActiveFilters}
+            color="inherit"
+            sx={{
+              alignSelf: { xs: "flex-start", md: "center" },
+              mt: { xs: 1, md: 0 },
+              ml: { md: 1 },
+              px: 2,
+              borderRadius: 999,
+              whiteSpace: "nowrap",
+              flexShrink: 0,
+              borderColor: "divider",
+              color: hasActiveFilters ? "text.secondary" : "text.disabled",
+              textTransform: "none",
+              "&:hover": {
+                borderColor: "primary.main",
+                color: hasActiveFilters ? "text.primary" : "text.disabled",
+                backgroundColor: hasActiveFilters ? "action.hover" : "transparent",
+              },
+            }}
+          >
+            Limpar filtros
+          </Button>
         </Stack>
 
         <Alert severity={totalItems === 0 ? "warning" : "info"}>{helperText}</Alert>
