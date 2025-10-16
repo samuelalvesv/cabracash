@@ -1,6 +1,6 @@
 # Sistema de Pontuação e Ranking de ETFs
 
-Greg, especialista em ETFs americanos para brasileiros com mais de 20 anos de mercado, recomenda o framework abaixo para comparar qualquer ETF — independentemente da classe declarada pelo emissor. A metodologia combina **Fundamentos (60%)** e **Oportunidade (40%)**, utilizando métricas normalizadas e penalizações contextuais para evitar armadilhas de liquidez ou momentum.
+A metodologia combina **Fundamentos (55%)** e **Oportunidade (45%)**, utilizando métricas normalizadas e penalizações contextuais para evitar armadilhas de liquidez ou momentum.
 
 ---
 
@@ -67,7 +67,7 @@ Cada vetor de métricas é:
 
 ---
 
-## 4. Fundamentos (60%)
+## 4. Fundamentos (55%)
 
 | Indicador                        | Símbolo           | Peso |
 |----------------------------------|-------------------|------|
@@ -88,7 +88,7 @@ FundamentalsScore = Σ(peso_i * score_i) / Σ(peso_i)
 
 ---
 
-## 5. Oportunidade (40%)
+## 5. Oportunidade (45%)
 
 | Indicador            | Símbolo       | Peso |
 |----------------------|---------------|------|
@@ -119,7 +119,7 @@ Essa regra evita ranquear ativos com “queda sem fluxo” apenas porque estão 
 ## 6. Nota final e ordenação
 
 ```
-FinalScore = 0.60 * FundamentalsScore + 0.40 * OpportunityScore
+FinalScore = 0.55 * FundamentalsScore + 0.45 * OpportunityScore
 ```
 
 Empates são resolvidos por:

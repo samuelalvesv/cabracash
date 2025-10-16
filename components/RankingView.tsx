@@ -70,11 +70,39 @@ const DEFAULT_COLUMN_VISIBILITY: Record<string, boolean> = DETAIL_COLUMN_CONFIGS
 const GRID_ROW_HEIGHT = 52;
 const GRID_HEADER_HEIGHT = 56;
 
+const clampScore = (value: number): number => Math.min(Math.max(value, 0), 100);
+
+const parseThresholdInput = (value: string): number => {
+  if (!value) {
+    return 0;
+  }
+
+  const sanitized = value.replace(",", ".");
+  const numeric = Number.parseFloat(sanitized);
+  if (Number.isNaN(numeric)) {
+    return 0;
+  }
+
+  return clampScore(numeric);
+};
+
+const sanitizeThresholdInput = (value: string): string => {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return "";
+  }
+
+  const normalized = parseThresholdInput(trimmed);
+  return normalized > 0 ? normalized.toString() : "";
+};
+
 interface RankingViewProps {
   items: RankedEtf[];
   pageSize: number;
   initialPage: number;
   initialSearch?: string;
+  initialMinFundamentals?: number;
+  initialMinOpportunity?: number;
 }
 
 function buildSearchText(item: RankedEtf): string {
@@ -100,7 +128,14 @@ function buildSearchText(item: RankedEtf): string {
   return strings.join(" ").toLowerCase();
 }
 
-export function RankingView({ items, pageSize, initialPage, initialSearch = "" }: RankingViewProps) {
+export function RankingView({
+  items,
+  pageSize,
+  initialPage,
+  initialSearch = "",
+  initialMinFundamentals = 0,
+  initialMinOpportunity = 0,
+}: RankingViewProps) {
 
 
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
@@ -116,6 +151,20 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
   const [page, setPage] = useState(initialPage);
   const previousSearchRef = useRef(trimmedInitial);
   const pathnameRef = useRef<string>("");
+
+  const normalizedInitialFundamentals = clampScore(initialMinFundamentals);
+  const normalizedInitialOpportunity = clampScore(initialMinOpportunity);
+  const [minFundamentalsInput, setMinFundamentalsInput] = useState(
+    normalizedInitialFundamentals > 0 ? normalizedInitialFundamentals.toString() : "",
+  );
+  const [minOpportunityInput, setMinOpportunityInput] = useState(
+    normalizedInitialOpportunity > 0 ? normalizedInitialOpportunity.toString() : "",
+  );
+
+  const minFundamentals = useMemo(() => parseThresholdInput(minFundamentalsInput), [minFundamentalsInput]);
+  const minOpportunity = useMemo(() => parseThresholdInput(minOpportunityInput), [minOpportunityInput]);
+  const thresholdsActive = minFundamentals > 0 || minOpportunity > 0;
+  const previousThresholdsRef = useRef({ fundamentals: normalizedInitialFundamentals, opportunity: normalizedInitialOpportunity });
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -134,6 +183,12 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
 
       const nextPage = Math.max(1, Number.parseInt(params.get("page") ?? "1", 10));
       setPage(nextPage);
+
+      const nextFundamentals = parseThresholdInput(params.get("minFundamentals") ?? "");
+      const nextOpportunity = parseThresholdInput(params.get("minOpportunity") ?? "");
+      setMinFundamentalsInput(nextFundamentals > 0 ? nextFundamentals.toString() : "");
+      setMinOpportunityInput(nextOpportunity > 0 ? nextOpportunity.toString() : "");
+      previousThresholdsRef.current = { fundamentals: nextFundamentals, opportunity: nextOpportunity };
     };
 
     window.addEventListener("popstate", handlePopState);
@@ -155,51 +210,84 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
     };
   }, [searchValue]);
 
-  const updateUrl = useCallback((nextPage: number, nextSearch: string) => {
-    if (typeof window === "undefined") {
-      return;
-    }
+  const updateUrl = useCallback(
+    (overrides?: Partial<{ page: number; search: string; fundamentals: number; opportunity: number }>) => {
+      if (typeof window === "undefined") {
+        return;
+      }
 
-    const params = new URLSearchParams(window.location.search);
+      const params = new URLSearchParams(window.location.search);
 
-    if (nextPage > 1) {
-      params.set("page", nextPage.toString());
-    } else {
-      params.delete("page");
-    }
+      const nextPage = overrides?.page ?? page;
+      if (nextPage > 1) {
+        params.set("page", nextPage.toString());
+      } else {
+        params.delete("page");
+      }
 
-    const trimmedSearch = nextSearch.trim();
-    if (trimmedSearch.length > 0) {
-      params.set("search", trimmedSearch);
-    } else {
-      params.delete("search");
-    }
+      const nextSearch = (overrides?.search ?? debouncedValue).trim();
+      if (nextSearch.length > 0) {
+        params.set("search", nextSearch);
+      } else {
+        params.delete("search");
+      }
 
-    const nextQuery = params.toString();
-    const basePath = pathnameRef.current || window.location.pathname;
-    const nextUrl = nextQuery.length > 0 ? `${basePath}?${nextQuery}` : basePath;
+      const fundamentalsValue = overrides?.fundamentals ?? minFundamentals;
+      if (fundamentalsValue > 0) {
+        params.set("minFundamentals", fundamentalsValue.toString());
+      } else {
+        params.delete("minFundamentals");
+      }
 
-    window.history.replaceState(null, "", nextUrl);
-  }, []);
+      const opportunityValue = overrides?.opportunity ?? minOpportunity;
+      if (opportunityValue > 0) {
+        params.set("minOpportunity", opportunityValue.toString());
+      } else {
+        params.delete("minOpportunity");
+      }
+
+      const nextQuery = params.toString();
+      const basePath = pathnameRef.current || window.location.pathname;
+      const nextUrl = nextQuery.length > 0 ? `${basePath}?${nextQuery}` : basePath;
+
+      window.history.replaceState(null, "", nextUrl);
+    },
+    [page, debouncedValue, minFundamentals, minOpportunity],
+  );
 
   // Reset page when search changes and update URL
   useEffect(() => {
     if (previousSearchRef.current !== debouncedValue) {
       previousSearchRef.current = debouncedValue;
       setPage(1);
-      updateUrl(1, debouncedValue);
+      updateUrl({ page: 1, search: debouncedValue });
     }
   }, [debouncedValue, updateUrl]);
 
+  useEffect(() => {
+    const previous = previousThresholdsRef.current;
+    if (previous.fundamentals !== minFundamentals || previous.opportunity !== minOpportunity) {
+      previousThresholdsRef.current = { fundamentals: minFundamentals, opportunity: minOpportunity };
+      setPage(1);
+      updateUrl({ page: 1, fundamentals: minFundamentals, opportunity: minOpportunity });
+    }
+  }, [minFundamentals, minOpportunity, updateUrl]);
+
+  const thresholdFilteredItems = useMemo(() => {
+    return items.filter(
+      (item) => item.scores.fundamentals >= minFundamentals && item.scores.opportunity >= minOpportunity,
+    );
+  }, [items, minFundamentals, minOpportunity]);
+
   const filteredItems = useMemo(() => {
     if (!debouncedQuery) {
-      return items;
+      return thresholdFilteredItems;
     }
-    return items.filter((item) => {
+    return thresholdFilteredItems.filter((item) => {
       const text = buildSearchText(item);
       return text.includes(debouncedQuery);
     });
-  }, [items, debouncedQuery]);
+  }, [thresholdFilteredItems, debouncedQuery]);
 
   const totalItems = filteredItems.length;
   const totalPages = totalItems === 0 ? 1 : Math.ceil(totalItems / pageSize);
@@ -216,21 +304,36 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
   const handlePageChange = useCallback(
     (_: unknown, newPage: number) => {
       setPage(newPage);
-      updateUrl(newPage, debouncedValue);
+      updateUrl({ page: newPage });
     },
-    [updateUrl, debouncedValue],
+    [updateUrl],
   );
 
   const helperText = useMemo(() => {
     if (totalItems === 0) {
-      return debouncedValue
-        ? `Nenhum ETF encontrado para "${debouncedValue}".`
-        : "Nenhum ETF encontrado para compor o ranking.";
+      if (debouncedValue && thresholdsActive) {
+        return `Nenhum ETF atende aos filtros para "${debouncedValue}".`;
+      }
+      if (debouncedValue) {
+        return `Nenhum ETF encontrado para "${debouncedValue}".`;
+      }
+      if (thresholdsActive) {
+        return "Nenhum ETF atende aos filtros mínimos definidos.";
+      }
+      return "Nenhum ETF encontrado para compor o ranking.";
     }
 
     const totalFormat = new Intl.NumberFormat("pt-BR").format(totalItems);
     return `Mostrando ${startIndex}–${endIndex} de ${totalFormat} ETFs ranqueados.`;
-  }, [debouncedValue, endIndex, startIndex, totalItems]);
+  }, [debouncedValue, endIndex, startIndex, totalItems, thresholdsActive]);
+
+  const handleFundamentalsBlur = useCallback(() => {
+    setMinFundamentalsInput((current) => sanitizeThresholdInput(current));
+  }, []);
+
+  const handleOpportunityBlur = useCallback(() => {
+    setMinOpportunityInput((current) => sanitizeThresholdInput(current));
+  }, []);
 
   const dataGridColumns = useMemo<GridColDef<RankingGridRow>[]>(() => {
     const baseColumns: GridColDef<RankingGridRow>[] = [
@@ -386,22 +489,68 @@ export function RankingView({ items, pageSize, initialPage, initialSearch = "" }
           </Stack>
         </Stack>
 
-        <TextField
-          fullWidth
-          value={searchValue}
-          onChange={(event) => setSearchValue(event.target.value)}
-          placeholder="Pesquisar por nome, código ou categoria"
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-              sx: { borderRadius: 999 },
-            },
-          }}
-        />
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "stretch", md: "flex-start" }} sx={{ width: "100%" }}>
+          <TextField
+            value={searchValue}
+            onChange={(event) => setSearchValue(event.target.value)}
+            placeholder="Pesquisar por nome, código ou categoria"
+            sx={{ width: { xs: "100%", md: "100%" }, flexGrow: { md: 1 }, minWidth: { md: 260 } }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+                sx: { borderRadius: 999 },
+              },
+            }}
+          />
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            sx={{ flexGrow: { md: 1.2 }, minWidth: { md: 380 }, width: "100%" }}
+          >
+            <TextField
+              label="Fundamentos mín."
+              value={minFundamentalsInput}
+              onChange={(event) => setMinFundamentalsInput(event.target.value)}
+              onBlur={handleFundamentalsBlur}
+              placeholder="0"
+              type="number"
+              sx={{ width: { xs: "100%", sm: "100%" }, flexGrow: 1 }}
+              slotProps={{
+                input: {
+                  endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                  inputProps: {
+                    inputMode: "decimal",
+                    min: 0,
+                    max: 100,
+                  },
+                },
+              }}
+            />
+            <TextField
+              label="Oportunidade mín."
+              value={minOpportunityInput}
+              onChange={(event) => setMinOpportunityInput(event.target.value)}
+              onBlur={handleOpportunityBlur}
+              placeholder="0"
+              type="number"
+              sx={{ width: { xs: "100%", sm: "100%" }, flexGrow: 1 }}
+              slotProps={{
+                input: {
+                  endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                  inputProps: {
+                    inputMode: "decimal",
+                    min: 0,
+                    max: 100,
+                  },
+                },
+              }}
+            />
+          </Stack>
+        </Stack>
 
         <Alert severity={totalItems === 0 ? "warning" : "info"}>{helperText}</Alert>
 

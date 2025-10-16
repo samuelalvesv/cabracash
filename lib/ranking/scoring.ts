@@ -369,7 +369,7 @@ export function scoreEtfs(entries: EtfEntry[]): RankedEtf[] {
         });
       }
 
-      const finalScore = 0.6 * fundamentalsScore + 0.4 * opportunityScore;
+      const finalScore = 0.55 * fundamentalsScore + 0.45 * opportunityScore;
 
       return {
         symbol: entry.symbol,

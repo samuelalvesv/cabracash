@@ -49,7 +49,7 @@ const BENEFIT_DETAILS: BenefitDetail[] = [
 
 const RANKING_OVERVIEW: ContentSection[] = [
   {
-    title: "Fundamentos: estrutura sólida (60%)",
+    title: "Fundamentos: estrutura sólida (55%)",
     description:
       "Medimos qualidade estrutural do ETF para garantir que a base do investimento é resiliente ao longo prazo.",
     icon: <SecurityIcon fontSize="large" color="primary" />,
@@ -61,7 +61,7 @@ const RANKING_OVERVIEW: ContentSection[] = [
     ],
   },
   {
-    title: "Oportunidade: timing e momentum (40%)",
+    title: "Oportunidade: timing e momentum (45%)",
     description:
       "Complementamos fundamentos com sinais de preço e volume para identificar ETFs em pontos de entrada interessantes.",
     icon: <TimelineIcon fontSize="large" color="secondary" />,
@@ -79,7 +79,7 @@ const RANKING_OVERVIEW: ContentSection[] = [
     points: [
       "Winsorização entre 2% e 98% para reduzir ruído de outliers.",
       "Normalização 0–100 com inversões de sinal quando menor = melhor.",
-      "Pontuação final = 0,60 * Fundamentos + 0,40 * Oportunidade.",
+      "Pontuação final = 0,55 * Fundamentos + 0,45 * Oportunidade.",
       "Empates resolvidos por Fundamentos e, em seguida, símbolo do ETF.",
     ],
   },
@@ -160,7 +160,7 @@ export default function AboutPage() {
                 <Stack direction="row" spacing={1} alignItems="center">
                   <SecurityIcon color="primary" fontSize="small" />
                   <Typography variant="body2" fontWeight={600}>
-                    Fundamentos: 60%
+                    Fundamentos: 55%
                   </Typography>
                 </Stack>
                 <Typography variant="body2" color="text.secondary">
@@ -169,7 +169,7 @@ export default function AboutPage() {
                 <Stack direction="row" spacing={1} alignItems="center">
                   <TimelineIcon color="secondary" fontSize="small" />
                   <Typography variant="body2" fontWeight={600}>
-                    Oportunidade: 40%
+                    Oportunidade: 45%
                   </Typography>
                 </Stack>
                 <Typography variant="body2" color="text.secondary">
@@ -177,7 +177,7 @@ export default function AboutPage() {
                 </Typography>
               </Stack>
               <Typography variant="body2" color="text.secondary">
-                Pesos, fórmulas e tratamento de dados estão descritos em detalhes na documentação. A média ponderada 60/40 inclui penalizações automáticas para quedas sem fluxo e desempate por fundamentos.
+                Pesos, fórmulas e tratamento de dados estão descritos em detalhes na documentação. A média ponderada 55/45 inclui penalizações automáticas para quedas sem fluxo e desempate por fundamentos.
               </Typography>
             </Paper>
           </Grid>
