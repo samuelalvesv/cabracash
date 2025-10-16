@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   title: "CabraCash",
   description: "CabraCash ETF ranking",
   icons: {
-    icon: "../public/favicon.ico",
+    icon: "/favicon.ico",
   },
 };
 
