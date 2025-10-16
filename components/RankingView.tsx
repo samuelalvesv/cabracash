@@ -27,6 +27,7 @@ import {
   Typography,
   type SnackbarCloseReason,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import { DataGrid, type GridColDef, type GridColumnVisibilityModel, type GridRenderCellParams } from "@mui/x-data-grid";
 import SearchIcon from "@mui/icons-material/Search";
 import TableChartIcon from "@mui/icons-material/TableChart";
@@ -741,6 +742,23 @@ export function RankingView({
                 height: gridHeight,
                 "& .MuiDataGrid-columnHeaders": {
                   whiteSpace: "nowrap",
+                },
+                "& *::-webkit-scrollbar": {
+                  width: 10,
+                  height: 10,
+                },
+                "& *::-webkit-scrollbar-thumb": {
+                  backgroundColor: (theme) => alpha(theme.palette.primary.main, 0.4),
+                  borderRadius: 999,
+                  border: "2px solid transparent",
+                  backgroundClip: "content-box",
+                },
+                "& *::-webkit-scrollbar-track": {
+                  backgroundColor: (theme) =>
+                    theme.palette.mode === "dark"
+                      ? alpha(theme.palette.common.white, 0.06)
+                      : alpha(theme.palette.text.primary, 0.05),
+                  borderRadius: 999,
                 },
               }}
             />
