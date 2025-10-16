@@ -16,7 +16,7 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. A página já usa [MUI](https://mui.com/) com um `ThemeProvider` configurado em `app/layout.tsx` e exibe o ranking paginado calculado no backend.
+You can start editing the page by modifying `src/app/page.tsx`. A página já usa [MUI](https://mui.com/) com um `ThemeProvider` configurado em `src/app/layout.tsx` e exibe o ranking paginado calculado no backend.
 
 ## APIs internas
 
@@ -32,7 +32,7 @@ You can start editing the page by modifying `app/page.tsx`. A página já usa [M
     }
   }
   ```
-- `GET /api/market/ranking`: processa os dados brutos, aplica a metodologia descrita em `etf_ranking.md` (winsorização 2–98%, normalização 0–100, pesos de Fundamentos e Oportunidade) e devolve a lista ordenada por `FinalScore`.
+- `GET /api/market/ranking`: processa os dados brutos, aplica a metodologia descrita em `docs/etf_ranking.md` (winsorização 2–98%, normalização 0–100, pesos de Fundamentos e Oportunidade) e devolve a lista ordenada por `FinalScore`.
 - Rota de detalhes: `GET /etf/[symbol]` (via App Router) reaproveita o ranking calculado, exibe todos os indicadores disponíveis agrupados por categoria e mostra a decomposição das notas de Fundamentos e Oportunidade. Basta clicar em qualquer card da tela principal para acessar.
 
 ## Scripts úteis
