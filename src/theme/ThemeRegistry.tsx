@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useCallback, useEffect, useMemo, useState } from "react";
-import { AppRouterCacheProvider } from "@mui/material-nextjs/v14-appRouter";
+import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
 import { CssBaseline, GlobalStyles, useMediaQuery } from "@mui/material";
 import type { PaletteMode } from "@mui/material";
 import { ThemeProvider } from "@mui/material/styles";
@@ -15,11 +15,7 @@ interface ColorModeContextValue {
   setMode: (mode: PaletteMode) => void;
 }
 
-export const ColorModeContext = createContext<ColorModeContextValue>({
-  mode: "light",
-  toggleColorMode: () => {},
-  setMode: () => {},
-});
+export const ColorModeContext = createContext<ColorModeContextValue | null>(null);
 
 const STORAGE_KEY = "app-color-mode";
 

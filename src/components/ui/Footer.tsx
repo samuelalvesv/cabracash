@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import type { ReactElement } from "react";
-import { Box, Container, Typography, Link as MuiLink } from "@mui/material";
+import { Box, Container, Typography, Link as MuiLink, Stack } from "@mui/material";
+import LinkedInIcon from "@mui/icons-material/LinkedIn";
 
 export default function Footer(): ReactElement {
   return (
@@ -11,14 +12,16 @@ export default function Footer(): ReactElement {
       sx={{
         borderTop: 1,
         borderColor: "divider",
-        mt: 8,
-        py: 3,
+        mt: 4,
+        py: 2,
         bgcolor: (theme) => theme.palette.background.paper,
       }}
     >
       <Container maxWidth="lg" sx={{ display: "flex", justifyContent: "center" }}>
-        <Typography variant="body2" color="text.secondary" textAlign="center">
-          Site criado por{" "}
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography variant="caption" color="text.secondary">
+            Site criado por
+          </Typography>
           <MuiLink
             component={Link}
             href="https://www.linkedin.com/in/samuelalvesv/"
@@ -26,11 +29,14 @@ export default function Footer(): ReactElement {
             rel="noopener noreferrer"
             underline="hover"
             color="inherit"
+            sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}
           >
-            Samuel Alves
+            <LinkedInIcon fontSize="small" />
+            <Typography variant="caption" component="span" fontWeight={600}>
+              Samuel Alves
+            </Typography>
           </MuiLink>
-          .
-        </Typography>
+        </Stack>
       </Container>
     </Box>
   );

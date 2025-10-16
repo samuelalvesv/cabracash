@@ -1,8 +1,9 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import RankingView from "@/features/ranking/components/RankingView";
+import * as filterStorage from "@/features/ranking/components/rankingFilterStorage";
 import { FUNDAMENTAL_DEFINITIONS, OPPORTUNITY_DEFINITIONS } from "@/features/ranking/server/metricDefinitions";
 import type { RankedEtf } from "@/features/ranking/server/types";
 import ThemeRegistry from "@/theme/ThemeRegistry";
@@ -15,6 +16,15 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+beforeEach(() => {
+  window.sessionStorage.clear();
+  window.history.replaceState(null, "", "/");
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  window.sessionStorage.clear();
+});
 function buildSampleEtf(symbol: string): RankedEtf {
   const features: RankedEtf["features"] = {
     expenseRatio: 0.05,
@@ -140,5 +150,62 @@ describe("RankingView", () => {
     expect(screen.getAllByText(/AAA/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/BBB/)).toBeNull();
     expect(screen.queryByText(/Nenhum ETF encontrado/)).toBeNull();
+  });
+
+  it("restaura filtros salvos quando não há parâmetros na URL", async () => {
+    const first = buildSampleEtf("AAA");
+    const second = buildSampleEtf("BBB");
+
+    window.sessionStorage.setItem(
+      "ranking:filters",
+      JSON.stringify({
+        page: 2,
+        search: "BBB",
+        minFundamentals: 65,
+        minOpportunity: 45,
+      }),
+    );
+
+    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+
+    render(
+      <ThemeRegistry>
+        <RankingView items={[first, second]} pageSize={1} initialPage={1} />
+      </ThemeRegistry>,
+    );
+
+    expect(replaceStateSpy).toHaveBeenCalled();
+    const updatedUrls = replaceStateSpy.mock.calls.map((call) => call[2] as string);
+    expect(updatedUrls.some((url) => url?.includes("search=BBB"))).toBe(true);
+    expect(updatedUrls.some((url) => url?.includes("minFundamentals=65"))).toBe(true);
+    expect(updatedUrls.some((url) => url?.includes("minOpportunity=45"))).toBe(true);
+    expect(updatedUrls.some((url) => url?.includes("page=2"))).toBe(true);
+  });
+
+  it("permite limpar filtros ativos de forma rápida", async () => {
+    const first = buildSampleEtf("AAA");
+    const second = buildSampleEtf("BBB");
+
+    const saveSpy = vi.spyOn(filterStorage, "saveRankingFilters");
+
+    render(
+      <ThemeRegistry>
+        <RankingView
+          items={[first, second]}
+          pageSize={12}
+          initialPage={1}
+          initialSearch="BBB"
+          initialMinFundamentals={60}
+          initialMinOpportunity={40}
+        />
+      </ThemeRegistry>,
+    );
+
+    const clearButtons = screen.getAllByRole("button", { name: /limpar filtros/i });
+    fireEvent.click(clearButtons[clearButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(saveSpy).toHaveBeenCalledWith({ page: 1, search: "", minFundamentals: 0, minOpportunity: 0 });
+    });
   });
 });

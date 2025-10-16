@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import { Box, Button, Container, Divider, Paper, Stack, Typography } from "@mui/material";
 import Grid from "@mui/material/Grid";
@@ -10,6 +10,7 @@ import SavingsIcon from "@mui/icons-material/Savings";
 import SecurityIcon from "@mui/icons-material/Security";
 import QueryStatsIcon from "@mui/icons-material/QueryStats";
 import TimelineIcon from "@mui/icons-material/Timeline";
+import { buildRankingQueryString, loadRankingFilters } from "@/features/ranking/components/rankingFilterStorage";
 
 interface ContentSection {
   title: string;
@@ -83,6 +84,15 @@ const RANKING_OVERVIEW: ContentSection[] = [
 ];
 
 export default function AboutPage() {
+  const rankingHref = useMemo(() => {
+    const stored = loadRankingFilters();
+    if (!stored) {
+      return "/";
+    }
+    const query = buildRankingQueryString(stored);
+    return `/${query}`;
+  }, []);
+
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 4, md: 8 } }}>
       <Stack spacing={6}>
@@ -100,7 +110,7 @@ export default function AboutPage() {
             color="text.secondary"
             sx={{ fontSize: { xs: "1rem", md: "1.25rem" } }}
           >
-            Levar parte da carteira para ETFs americanos protege o poder de compra e dá acesso a mercados e tecnologias que não
+            Levar parte da carteira para ETFs americanos protege o poder de compra e dá acesso a mercados que não
             existem no Brasil — tudo sem ter que garimpar ação por ação.
           </Typography>
         </Box>
@@ -253,7 +263,7 @@ export default function AboutPage() {
             </Stack>
             <Button
               component={Link}
-              href="/"
+              href={rankingHref}
               variant="contained"
               color="primary"
               startIcon={<BarChartIcon />}

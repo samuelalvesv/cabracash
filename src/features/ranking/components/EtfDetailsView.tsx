@@ -2,6 +2,7 @@
 
 import React, { useMemo } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Accordion,
   AccordionDetails,
@@ -31,6 +32,7 @@ import { FUNDAMENTAL_DEFINITIONS, OPPORTUNITY_DEFINITIONS } from "@/features/ran
 import type { RankedEtf } from "@/features/ranking/server/types";
 import { buildDetailSections, formatDetailValue } from "@/features/ranking/server/detailSections";
 import { formatScore } from "@/shared/utils/formatters";
+import { buildRankingQueryString, loadRankingFilters } from "@/features/ranking/components/rankingFilterStorage";
 
 interface EtfDetailsViewProps {
   etf: RankedEtf;
@@ -38,6 +40,7 @@ interface EtfDetailsViewProps {
 
 export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
   const theme = useTheme();
+  const searchParams = useSearchParams();
 
   const detailSections = useMemo(() => buildDetailSections(etf), [etf]);
 
@@ -74,6 +77,27 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
   }, [etf]);
 
   const rawJson = useMemo(() => JSON.stringify(etf.raw, null, 2), [etf.raw]);
+  const backLinkQuery = useMemo(() => {
+    const params = new URLSearchParams();
+    const allowedKeys = ["search", "minFundamentals", "minOpportunity", "page"];
+    allowedKeys.forEach((key) => {
+      const value = searchParams.get(key);
+      if (typeof value === "string" && value.length > 0) {
+        params.set(key, value);
+      }
+    });
+
+    if (params.size > 0) {
+      return `?${params.toString()}`;
+    }
+
+    const stored = loadRankingFilters();
+    if (stored) {
+      return buildRankingQueryString(stored);
+    }
+
+    return "";
+  }, [searchParams]);
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 } }}>
@@ -89,7 +113,7 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
             </Typography>
             <Button
               component={Link}
-              href="/"
+              href={`/${backLinkQuery}`}
               variant="outlined"
               color="inherit"
               startIcon={<ArrowBackIcon fontSize="small" />}

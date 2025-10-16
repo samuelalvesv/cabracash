@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 
 import EtfDetailsView from "@/features/ranking/components/EtfDetailsView";
 import { FUNDAMENTAL_DEFINITIONS, OPPORTUNITY_DEFINITIONS } from "@/features/ranking/server/metricDefinitions";
@@ -15,6 +15,23 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+const mockUseSearchParams = vi.hoisted(() =>
+  vi.fn<() => URLSearchParams>(() => new URLSearchParams()),
+) as MockInstance<() => URLSearchParams>;
+
+vi.mock("next/navigation", () => ({
+  useSearchParams: mockUseSearchParams,
+}));
+
+beforeEach(() => {
+  mockUseSearchParams.mockReturnValue(new URLSearchParams());
+  window.sessionStorage.clear();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  window.sessionStorage.clear();
+});
 function buildEtf(symbol: string): RankedEtf {
   const features: RankedEtf["features"] = {
     expenseRatio: 0.05,
@@ -183,5 +200,44 @@ describe("EtfDetailsView", () => {
     expect(screen.getByText(/Componentes de Fundamentos/)).toBeInTheDocument();
     expect(screen.getByText(/Componentes de Oportunidade/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /voltar/i })).toBeInTheDocument();
+  });
+
+  it("inclui parâmetros da URL no link de voltar", () => {
+    mockUseSearchParams.mockReturnValue(new URLSearchParams("search=AAA&minOpportunity=40&page=2"));
+
+    const etf = buildEtf("ETF1");
+    render(
+      <ThemeRegistry>
+        <EtfDetailsView etf={etf} />
+      </ThemeRegistry>,
+    );
+
+    const backLinks = screen.getAllByRole("link", { name: /voltar/i });
+    const hrefs = backLinks.map((link) => link.getAttribute("href"));
+    expect(hrefs).toContain("/?search=AAA&minOpportunity=40&page=2");
+  });
+
+  it("recupera filtros salvos quando não há parâmetros", () => {
+    mockUseSearchParams.mockReturnValue(new URLSearchParams());
+    window.sessionStorage.setItem(
+      "ranking:filters",
+      JSON.stringify({
+        page: 3,
+        search: "BBB",
+        minFundamentals: 55,
+        minOpportunity: 35,
+      }),
+    );
+
+    const etf = buildEtf("ETF2");
+    render(
+      <ThemeRegistry>
+        <EtfDetailsView etf={etf} />
+      </ThemeRegistry>,
+    );
+
+    const backLinks = screen.getAllByRole("link", { name: /voltar/i });
+    const hrefs = backLinks.map((link) => link.getAttribute("href"));
+    expect(hrefs).toContain("/?search=BBB&minFundamentals=55&minOpportunity=35&page=3");
   });
 });

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   AppBar,
   Box,
@@ -19,9 +19,10 @@ import {
 import MenuIcon from "@mui/icons-material/Menu";
 import CloseIcon from "@mui/icons-material/Close";
 
-import { useColorMode } from "@/shared/hooks/useColorMode";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
+import { buildRankingQueryString, loadRankingFilters, RANKING_FILTERS_EVENT } from "@/features/ranking/components/rankingFilterStorage";
+import { useColorMode } from "@/shared/hooks/useColorMode";
 
 interface NavLink {
   label: string;
@@ -37,6 +38,7 @@ export default function Header(): React.ReactElement {
   const pathname = usePathname();
   const activeHref = useMemo(() => (pathname?.startsWith("/about") ? "/about" : "/"), [pathname]);
   const { mode, toggleColorMode } = useColorMode();
+  const [rankingHref, setRankingHref] = useState<string>("/");
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const isMenuOpen = Boolean(anchorEl);
@@ -49,13 +51,38 @@ export default function Header(): React.ReactElement {
     setAnchorEl(null);
   };
 
+  useEffect(() => {
+    const updateRankingHref = () => {
+      const stored = loadRankingFilters();
+      if (stored) {
+        const query = buildRankingQueryString(stored);
+        setRankingHref(`/${query}`);
+      } else {
+        setRankingHref("/");
+      }
+    };
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    updateRankingHref();
+    window.addEventListener(RANKING_FILTERS_EVENT, updateRankingHref);
+    window.addEventListener("focus", updateRankingHref);
+
+    return () => {
+      window.removeEventListener(RANKING_FILTERS_EVENT, updateRankingHref);
+      window.removeEventListener("focus", updateRankingHref);
+    };
+  }, []);
+
   return (
     <AppBar position="sticky" color="transparent" elevation={0} sx={{ borderBottom: 1, borderColor: "divider" }}>
       <Container maxWidth="lg">
         <Toolbar disableGutters sx={{ minHeight: 64 }}>
           <Box
             component={Link}
-            href="/"
+            href={rankingHref}
             sx={{
               textDecoration: "none",
               color: "inherit",
@@ -101,11 +128,12 @@ export default function Header(): React.ReactElement {
           <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center", gap: 2 }}>
             {NAV_LINKS.map((link) => {
               const isActive = link.href === activeHref;
+              const resolvedHref = link.href === "/" ? rankingHref : link.href;
               return (
                 <Button
                   key={link.href}
                   component={Link}
-                  href={link.href}
+                  href={resolvedHref}
                   color={isActive ? "primary" : "inherit"}
                   sx={{
                     fontWeight: isActive ? 700 : 500,
@@ -146,11 +174,12 @@ export default function Header(): React.ReactElement {
       >
         {NAV_LINKS.map((link) => {
           const isActive = link.href === activeHref;
+          const resolvedHref = link.href === "/" ? rankingHref : link.href;
           return (
             <MenuItem
               key={link.href}
               component={Link}
-              href={link.href}
+              href={resolvedHref}
               onClick={handleMenuClose}
               sx={{
                 fontWeight: isActive ? 700 : 500,
