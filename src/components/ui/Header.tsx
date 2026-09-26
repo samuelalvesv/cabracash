@@ -93,9 +93,9 @@ export default function Header(): React.ReactElement {
           >
             <Stack
               direction="row"
-              alignItems="center"
               spacing={0.2}
               sx={{
+                alignItems: "center",
                 px: 1,
                 py: 0,
                 borderRadius: 3,
@@ -114,11 +114,11 @@ export default function Header(): React.ReactElement {
               }}
             >
               <Image src="/logo.png" alt="CabraCash" width={56} height={56} priority style={{ borderRadius: "50%" }} />
-              <Stack spacing={0.25} lineHeight={1}>
-                <Typography variant="h6" fontWeight={300} sx={{ lineHeight: 1 }}>
+              <Stack spacing={0.25} sx={{ lineHeight: 1 }}>
+                <Typography variant="h6" sx={{ fontWeight: 300, lineHeight: 1 }}>
                   CABRA
                 </Typography>
-                <Typography variant="h6" fontWeight={300} sx={{ lineHeight: 1 }}>
+                <Typography variant="h6" sx={{ fontWeight: 300, lineHeight: 1 }}>
                   CASH
                 </Typography>
               </Stack>
@@ -148,7 +148,7 @@ export default function Header(): React.ReactElement {
 
           <Box sx={{ flexGrow: 1 }} />
 
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <IconButton onClick={toggleColorMode} color="inherit" aria-label="Alternar tema">
               {mode === "dark" ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
             </IconButton>

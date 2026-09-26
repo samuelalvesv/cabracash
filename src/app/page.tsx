@@ -2,7 +2,7 @@ import RankingView from "@/features/ranking/components/RankingView";
 import { fetchRankedEtfs } from "@/features/ranking/server/scoring";
 
 interface PageProps {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }
 
 function extractParam(value: string | string[] | undefined): string | undefined {
@@ -34,8 +34,11 @@ function normalizeScoreThreshold(value: string | undefined): number {
 
 const PAGE_SIZE = 12;
 
-export default async function Home({ searchParams }: PageProps) {
-  const rankedEtfs = await fetchRankedEtfs();
+export default async function Home(props: PageProps) {
+  const [rankedEtfs, searchParams] = await Promise.all([
+    fetchRankedEtfs(),
+    props.searchParams,
+  ]);
   const initialPage = normalizePage(extractParam(searchParams?.page));
   const initialSearch = extractParam(searchParams?.search) ?? "";
   const initialMinFundamentals = normalizeScoreThreshold(extractParam(searchParams?.minFundamentals));

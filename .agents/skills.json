@@ -1,0 +1,20 @@
+{
+  "entries": [
+    {
+      "path": ".agents/vendor/agent-skills/skills",
+      "include_only": [
+        "react-best-practices",
+        "composition-patterns",
+        "react-view-transitions",
+        "web-design-guidelines",
+        "vercel-optimize",
+        "writing-guidelines"
+      ],
+      "exclude": [
+        "react-native-skills",
+        "deploy-to-vercel",
+        "vercel-cli-with-tokens"
+      ]
+    }
+  ]
+}
