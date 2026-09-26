@@ -7,7 +7,7 @@ function CardSkeleton() {
   return (
     <Card variant="outlined" sx={{ height: "100%" }}>
       <CardContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
           <Skeleton variant="text" width={120} height={28} />
           <Skeleton variant="rounded" width={80} height={28} />
         </Stack>
@@ -28,7 +28,7 @@ function CardSkeleton() {
           <Skeleton variant="rectangular" height={6} animation="wave" />
         </Stack>
 
-        <Box display="grid" gridTemplateColumns="repeat(2, minmax(0, 1fr))" gap={1}>
+        <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1 }}>
           {Array.from({ length: 6 }).map((_, idx) => (
             <Stack key={idx} spacing={0.5}>
               <Skeleton variant="text" width="60%" height={16} />
@@ -45,7 +45,7 @@ export default function RankingSkeleton() {
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 } }}>
       <Stack spacing={4}>
-        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={2} alignItems={{ xs: "flex-start", sm: "center" }}>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ justifyContent: "space-between", alignItems: { xs: "flex-start", sm: "center" } }}>
           <Box>
             <Skeleton variant="text" width={240} height={40} />
             <Skeleton variant="text" width={360} height={24} />

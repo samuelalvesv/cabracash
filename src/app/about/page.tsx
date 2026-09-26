@@ -99,9 +99,8 @@ export default function AboutPage() {
         <Box>
           <Typography
             variant="h3"
-            fontWeight={700}
             gutterBottom
-            sx={{ fontSize: { xs: "2rem", md: "2.75rem" } }}
+            sx={{ fontWeight: 700, fontSize: { xs: "2rem", md: "2.75rem" } }}
           >
             Por que dolarizar com ETFs faz diferença
           </Typography>
@@ -120,16 +119,16 @@ export default function AboutPage() {
         <Grid container spacing={4}>
           <Grid size={{ xs: 12, md: 6 }} sx={{ display: "flex" }}>
             <Stack spacing={3} sx={{ flexGrow: 1 }}>
-              <Typography variant="h4" fontWeight={700}>
+              <Typography variant="h4" sx={{ fontWeight: 700 }}>
                 O que você ganha ao dolarizar
               </Typography>
               <Paper variant="outlined" sx={{ p: 3, height: "100%", display: "flex" }}>
                 <Stack spacing={2} sx={{ flexGrow: 1 }}>
                   {BENEFIT_DETAILS.map(({ title, icon, description }) => (
-                    <Stack direction="row" spacing={2} alignItems="flex-start" key={title}>
+                    <Stack direction="row" spacing={2} key={title} sx={{ alignItems: "flex-start" }}>
                       <Box sx={{ mt: 0.5, display: "flex" }}>{icon}</Box>
                       <Box>
-                        <Typography variant="subtitle1" fontWeight={600}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                           {title}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
@@ -156,7 +155,7 @@ export default function AboutPage() {
             <Typography variant="subtitle2" color="primary">
               Como o CabraCash ajuda nisso?
             </Typography>
-            <Typography variant="h5" fontWeight={700}>
+            <Typography variant="h5" sx={{ fontWeight: 700 }}>
               Como o ranking funciona
             </Typography>
             <Typography variant="body1" color="text.secondary">
@@ -164,18 +163,18 @@ export default function AboutPage() {
               atual parece um bom momento de compra. Assim você compara rapidamente, sem planilhas.
             </Typography>
               <Stack spacing={1.5}>
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                   <SecurityIcon color="primary" fontSize="small" />
-                  <Typography variant="body2" fontWeight={600}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     Fundamentos: 55%
                   </Typography>
                 </Stack>
               <Typography variant="body2" color="text.secondary">
                 Olhamos para taxa do fundo, tamanho e histórico do emissor, além de dividendos e estabilidade da carteira.
               </Typography>
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                   <TimelineIcon color="secondary" fontSize="small" />
-                  <Typography variant="body2" fontWeight={600}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     Oportunidade: 45%
                   </Typography>
                 </Stack>
@@ -195,7 +194,7 @@ export default function AboutPage() {
 
         <Stack spacing={4}>
           <Box>
-            <Typography variant="h4" fontWeight={700} gutterBottom>
+            <Typography variant="h4" gutterBottom sx={{ fontWeight: 700 }}>
                 Metodologia em 3 passos
             </Typography>
             <Typography variant="body1" color="text.secondary">
@@ -218,7 +217,7 @@ export default function AboutPage() {
                   {section.icon && (
                     <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-start" }}>{section.icon}</Box>
                   )}
-                  <Typography variant="h6" fontWeight={700}>
+                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
                     {section.title}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
@@ -250,11 +249,13 @@ export default function AboutPage() {
           <Stack
             direction={{ xs: "column", md: "row" }}
             spacing={3}
-            alignItems={{ xs: "flex-start", md: "center" }}
-            justifyContent="space-between"
+            sx={{
+              alignItems: { xs: "flex-start", md: "center" },
+              justifyContent: "space-between",
+            }}
           >
             <Stack spacing={1}>
-              <Typography variant="h5" fontWeight={700}>
+              <Typography variant="h5" sx={{ fontWeight: 700 }}>
                 Pronto para explorar o ranking?
               </Typography>
               <Typography variant="body2" color="text.secondary">

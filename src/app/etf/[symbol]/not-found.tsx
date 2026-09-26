@@ -34,8 +34,8 @@ export default function EtfNotFound() {
 
   return (
     <Container maxWidth="sm" sx={{ py: 8 }}>
-      <Stack spacing={3} alignItems="center">
-        <Typography variant="h4" fontWeight={700} align="center">
+      <Stack spacing={3} sx={{ alignItems: "center" }}>
+        <Typography variant="h4" align="center" sx={{ fontWeight: 700 }}>
           ETF não encontrado
         </Typography>
         <Typography variant="body1" color="text.secondary" align="center">

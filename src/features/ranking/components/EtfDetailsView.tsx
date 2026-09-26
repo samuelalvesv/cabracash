@@ -103,11 +103,10 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
     <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 } }}>
       <Stack spacing={4}>
         <Stack spacing={2}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
+          <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "space-between" }}>
             <Typography
               variant="h4"
-              fontWeight={700}
-              sx={{ fontSize: { xs: "1.8rem", md: "2.2rem" } }}
+              sx={{ fontWeight: 700, fontSize: { xs: "1.8rem", md: "2.2rem" } }}
             >
               {etf.symbol}
             </Typography>
@@ -124,12 +123,11 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
           </Stack>
           <Typography
             variant="h6"
-            fontWeight={600}
-            sx={{ fontSize: { xs: "1rem", md: "1.25rem" } }}
+            sx={{ fontWeight: 600, fontSize: { xs: "1rem", md: "1.25rem" } }}
           >
             {etf.raw.name ?? "Nome indisponível"}
           </Typography>
-          <Stack direction="row" spacing={1} flexWrap="wrap">
+          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
             <Chip label={`Categoria: ${etf.raw.etfCategory ?? "Não informada"}`} color="primary" variant="outlined" />
             {etf.raw.issuer && <Chip label={`Emissor: ${etf.raw.issuer}`} variant="outlined" />}
             {etf.raw.exchange && <Chip label={etf.raw.exchange} variant="outlined" />}
@@ -150,7 +148,7 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               Score Final
             </Typography>
-            <Typography variant="h3" fontWeight={700}>
+            <Typography variant="h3" sx={{ fontWeight: 700 }}>
               {formatScore(etf.scores.final)}
             </Typography>
             <Typography variant="body2" color="text.secondary">
@@ -161,7 +159,7 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               Fundamentos
             </Typography>
-            <Typography variant="h4" fontWeight={700}>
+            <Typography variant="h4" sx={{ fontWeight: 700 }}>
               {formatScore(etf.scores.fundamentals)}
             </Typography>
             <LinearProgress variant="determinate" value={etf.scores.fundamentals} sx={{ mt: 2 }} />
@@ -170,7 +168,7 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               Oportunidade
             </Typography>
-            <Typography variant="h4" fontWeight={700}>
+            <Typography variant="h4" sx={{ fontWeight: 700 }}>
               {formatScore(etf.scores.opportunity)}
             </Typography>
             <LinearProgress color="secondary" variant="determinate" value={etf.scores.opportunity} sx={{ mt: 2 }} />
@@ -207,7 +205,7 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
                       <TableCell align="right">{formatDetailValue(item.value, item.format)}</TableCell>
                       <TableCell align="right">
                         <Tooltip title={`Peso ${item.weight ?? 0}`}>
-                          <Typography variant="body2" fontWeight={600} component="span">
+                          <Typography variant="body2" component="span" sx={{ fontWeight: 600 }}>
                             {formatScore(item.score)}
                           </Typography>
                         </Tooltip>
@@ -238,7 +236,7 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
                       <TableCell align="right">{formatDetailValue(item.value, item.format)}</TableCell>
                       <TableCell align="right">
                         <Tooltip title={`Peso ${item.weight ?? 0}`}>
-                          <Typography variant="body2" fontWeight={600} component="span">
+                          <Typography variant="body2" component="span" sx={{ fontWeight: 600 }}>
                             {formatScore(item.score)}
                           </Typography>
                         </Tooltip>
@@ -267,7 +265,7 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
                         </Typography>
                       </TableCell>
                       <TableCell sx={{ border: 0 }} align="right">
-                        <Typography variant="body2" fontWeight={600}>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
                           {formatDetailValue(item.value, item.format)}
                         </Typography>
                       </TableCell>
