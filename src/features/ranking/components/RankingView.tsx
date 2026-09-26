@@ -130,6 +130,46 @@ function buildSearchText(item: RankedEtf): string {
   return strings.join(" ").toLowerCase();
 }
 
+function resolveInitialFilters({
+  initialPage,
+  initialSearch,
+  initialMinFundamentals,
+  initialMinOpportunity,
+}: {
+  initialPage: number;
+  initialSearch: string;
+  initialMinFundamentals: number;
+  initialMinOpportunity: number;
+}) {
+  const hasInitialFilters =
+    initialPage !== 1 || initialSearch.trim().length > 0 || initialMinFundamentals > 0 || initialMinOpportunity > 0;
+
+  if (!hasInitialFilters && typeof window !== "undefined" && window.location.search.length <= 1) {
+    const stored = loadRankingFilters();
+    if (stored) {
+      const safePage = Math.max(1, Number.isFinite(stored.page) ? Math.round(stored.page) : 1);
+      const safeSearch = (stored.search ?? "").trim();
+      const safeFundamentals = clampScore(stored.minFundamentals ?? 0);
+      const safeOpportunity = clampScore(stored.minOpportunity ?? 0);
+      return {
+        page: safePage,
+        search: safeSearch,
+        fundamentals: safeFundamentals,
+        opportunity: safeOpportunity,
+        restoredFromStorage: true,
+      };
+    }
+  }
+
+  return {
+    page: initialPage,
+    search: initialSearch.trim(),
+    fundamentals: clampScore(initialMinFundamentals),
+    opportunity: clampScore(initialMinOpportunity),
+    restoredFromStorage: false,
+  };
+}
+
 export function RankingView({
   items,
   pageSize,
@@ -138,7 +178,14 @@ export function RankingView({
   initialMinFundamentals = 0,
   initialMinOpportunity = 0,
 }: RankingViewProps) {
-
+  const [initialFilters] = useState(() =>
+    resolveInitialFilters({
+      initialPage,
+      initialSearch,
+      initialMinFundamentals,
+      initialMinOpportunity,
+    }),
+  );
 
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [columnVisibilityModel, setColumnVisibilityModel] = useState<GridColumnVisibilityModel>(() => ({
@@ -146,27 +193,27 @@ export function RankingView({
   }));
   const [copyFeedback, setCopyFeedback] = useState<{ message: string; severity: "success" | "error" } | null>(null);
 
-  const [searchValue, setSearchValue] = useState(initialSearch);
-  const trimmedInitial = initialSearch.trim();
-  const [debouncedValue, setDebouncedValue] = useState(trimmedInitial);
-  const [debouncedQuery, setDebouncedQuery] = useState(trimmedInitial.toLowerCase());
-  const [page, setPage] = useState(initialPage);
-  const previousSearchRef = useRef(trimmedInitial);
+  const [searchValue, setSearchValue] = useState(initialFilters.search);
+  const [debouncedValue, setDebouncedValue] = useState(initialFilters.search);
+  const [debouncedQuery, setDebouncedQuery] = useState(initialFilters.search.toLowerCase());
+  const [page, setPage] = useState(initialFilters.page);
+  const previousSearchRef = useRef(initialFilters.search);
   const pathnameRef = useRef<string>("");
 
-  const normalizedInitialFundamentals = clampScore(initialMinFundamentals);
-  const normalizedInitialOpportunity = clampScore(initialMinOpportunity);
   const [minFundamentalsInput, setMinFundamentalsInput] = useState(
-    normalizedInitialFundamentals > 0 ? normalizedInitialFundamentals.toString() : "",
+    initialFilters.fundamentals > 0 ? initialFilters.fundamentals.toString() : "",
   );
   const [minOpportunityInput, setMinOpportunityInput] = useState(
-    normalizedInitialOpportunity > 0 ? normalizedInitialOpportunity.toString() : "",
+    initialFilters.opportunity > 0 ? initialFilters.opportunity.toString() : "",
   );
 
   const minFundamentals = useMemo(() => parseThresholdInput(minFundamentalsInput), [minFundamentalsInput]);
   const minOpportunity = useMemo(() => parseThresholdInput(minOpportunityInput), [minOpportunityInput]);
   const thresholdsActive = minFundamentals > 0 || minOpportunity > 0;
-  const previousThresholdsRef = useRef({ fundamentals: normalizedInitialFundamentals, opportunity: normalizedInitialOpportunity });
+  const previousThresholdsRef = useRef({
+    fundamentals: initialFilters.fundamentals,
+    opportunity: initialFilters.opportunity,
+  });
   const hasActiveFilters = searchValue.trim().length > 0 || thresholdsActive;
   const updateUrlRef = useRef<
     (overrides?: Partial<{ page: number; search: string; fundamentals: number; opportunity: number }>) => void
@@ -291,48 +338,15 @@ export function RankingView({
   }, [updateUrl]);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
+    if (initialFilters.restoredFromStorage) {
+      updateUrlRef.current?.({
+        page: initialFilters.page,
+        search: initialFilters.search,
+        fundamentals: initialFilters.fundamentals,
+        opportunity: initialFilters.opportunity,
+      });
     }
-
-    if (window.location.search.length > 1) {
-      return;
-    }
-
-    const hasInitialFilters =
-      initialPage !== 1 || initialSearch.trim().length > 0 || initialMinFundamentals > 0 || initialMinOpportunity > 0;
-    if (hasInitialFilters) {
-      return;
-    }
-
-    const stored = loadRankingFilters();
-    if (!stored) {
-      return;
-    }
-
-    const safePage = Math.max(1, Number.isFinite(stored.page) ? Math.round(stored.page) : 1);
-    const safeSearch = stored.search;
-    const trimmedSearch = safeSearch.trim();
-    const safeFundamentals = clampScore(stored.minFundamentals ?? 0);
-    const safeOpportunity = clampScore(stored.minOpportunity ?? 0);
-
-    previousSearchRef.current = trimmedSearch;
-    previousThresholdsRef.current = { fundamentals: safeFundamentals, opportunity: safeOpportunity };
-
-    setSearchValue(safeSearch);
-    setDebouncedValue(trimmedSearch);
-    setDebouncedQuery(trimmedSearch.toLowerCase());
-    setPage(safePage);
-    setMinFundamentalsInput(safeFundamentals > 0 ? safeFundamentals.toString() : "");
-    setMinOpportunityInput(safeOpportunity > 0 ? safeOpportunity.toString() : "");
-
-    updateUrlRef.current?.({
-      page: safePage,
-      search: trimmedSearch,
-      fundamentals: safeFundamentals,
-      opportunity: safeOpportunity,
-    });
-  }, [initialPage, initialSearch, initialMinFundamentals, initialMinOpportunity]);
+  }, [initialFilters]);
 
   // Reset page when search changes and update URL
   useEffect(() => {
@@ -408,11 +422,11 @@ export function RankingView({
 
   const handleFundamentalsBlur = useCallback(() => {
     setMinFundamentalsInput((current) => sanitizeThresholdInput(current));
-  }, []);
+  }, [setMinFundamentalsInput]);
 
   const handleOpportunityBlur = useCallback(() => {
     setMinOpportunityInput((current) => sanitizeThresholdInput(current));
-  }, []);
+  }, [setMinOpportunityInput]);
 
   const handleClearFilters = useCallback(() => {
     setSearchValue("");
@@ -424,7 +438,15 @@ export function RankingView({
     previousThresholdsRef.current = { fundamentals: 0, opportunity: 0 };
     setPage(1);
     updateUrl({ page: 1, search: "", fundamentals: 0, opportunity: 0 });
-  }, [updateUrl]);
+  }, [
+    setSearchValue,
+    setDebouncedValue,
+    setDebouncedQuery,
+    setMinFundamentalsInput,
+    setMinOpportunityInput,
+    setPage,
+    updateUrl,
+  ]);
 
   const dataGridColumns = useMemo<GridColDef<RankingGridRow>[]>(() => {
     const baseColumns: GridColDef<RankingGridRow>[] = [
@@ -545,15 +567,16 @@ export function RankingView({
       <Stack spacing={4}>
         <Stack
           direction={{ xs: "column", sm: "row" }}
-          justifyContent="space-between"
-          alignItems={{ xs: "flex-start", sm: "center" }}
           spacing={2}
+          sx={{
+            justifyContent: "space-between",
+            alignItems: { xs: "flex-start", sm: "center" },
+          }}
         >
           <Box>
             <Typography
               variant="h4"
-              fontWeight={700}
-              sx={{ fontSize: { xs: "1.8rem", md: "2.2rem" } }}
+              sx={{ fontWeight: 700, fontSize: { xs: "1.8rem", md: "2.2rem" } }}
             >
               Ranking de ETFs
             </Typography>
@@ -564,9 +587,11 @@ export function RankingView({
           <Stack
             direction="row"
             spacing={1.5}
-            alignItems="center"
-            justifyContent={{ xs: "flex-start", sm: "flex-end" }}
-            flexWrap="wrap"
+            sx={{
+              alignItems: "center",
+              justifyContent: { xs: "flex-start", sm: "flex-end" },
+              flexWrap: "wrap",
+            }}
           >
             <ToggleButtonGroup color="primary" size="small" exclusive value={viewMode} onChange={handleViewModeChange}>
               <ToggleButton value="cards" aria-label="Mostrar cards">
@@ -583,8 +608,10 @@ export function RankingView({
         <Stack
           direction={{ xs: "column", md: "row" }}
           spacing={2}
-          alignItems={{ xs: "stretch", md: "flex-start" }}
-          sx={{ width: "100%" }}
+          sx={{
+            alignItems: { xs: "stretch", md: "flex-start" },
+            width: "100%",
+          }}
         >
           <TextField
             value={searchValue}
@@ -683,7 +710,7 @@ export function RankingView({
         <Alert severity={totalItems === 0 ? "warning" : "info"}>{helperText}</Alert>
 
         {totalPages > 1 && (
-          <Stack alignItems="center">
+          <Stack sx={{ alignItems: "center" }}>
             <Pagination
               page={safePage}
               count={totalPages}
@@ -744,17 +771,17 @@ export function RankingView({
                           flexGrow: 1,
                         }}
                       >
-                        <Stack direction="row" justifyContent="space-between" alignItems="center">
-                          <Typography variant="h5" fontWeight={700}>
+                        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+                          <Typography variant="h5" sx={{ fontWeight: 700 }}>
                             #{position} • {item.symbol}
                           </Typography>
                           <Chip label={`Score ${formatScore(scores.final)}`} color="primary" size="medium" />
                         </Stack>
 
-                        <Typography variant="subtitle1" fontWeight={600}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                           {typeof raw?.name === "string" && raw.name.length > 0 ? raw.name : "Nome indisponível"}
                         </Typography>
-                        <Stack direction="row" spacing={1} alignItems="center">
+                        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                           <Chip
                             size="small"
                             label={
@@ -770,7 +797,7 @@ export function RankingView({
                           )}
                         </Stack>
 
-                        <Stack spacing={2} flexGrow={1}>
+                        <Stack spacing={2} sx={{ flexGrow: 1 }}>
                           <Box sx={{ flex: 1 }}>
                             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                               Fundamentos
@@ -789,7 +816,7 @@ export function RankingView({
                                       </Typography>
                                     </TableCell>
                                     <TableCell align="right" sx={{ border: 0 }}>
-                                      <Typography variant="body2" fontWeight={600}>
+                                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
                                         {formatMetric(getter(item), format)}
                                       </Typography>
                                     </TableCell>
@@ -817,7 +844,7 @@ export function RankingView({
                                       </Typography>
                                     </TableCell>
                                     <TableCell align="right" sx={{ border: 0 }}>
-                                      <Typography variant="body2" fontWeight={600}>
+                                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
                                         {formatMetric(getter(item), format)}
                                       </Typography>
                                     </TableCell>
@@ -893,7 +920,7 @@ export function RankingView({
         )}
 
         {totalItems > 0 && totalPages > 1 && (
-          <Stack alignItems="center" spacing={2}>
+          <Stack spacing={2} sx={{ alignItems: "center" }}>
             <Pagination
               page={safePage}
               count={totalPages}
