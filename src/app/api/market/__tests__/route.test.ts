@@ -1,10 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const fetchMarketDataMock = vi.fn();
+import { MarketDataConnectionError } from "@/services/market-data";
 
-vi.mock("@/services/market-data", () => ({
-  fetchMarketData: fetchMarketDataMock,
+const { fetchMarketDataMock } = vi.hoisted(() => ({
+  fetchMarketDataMock: vi.fn(),
 }));
+
+vi.mock("@/services/market-data", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/services/market-data")>();
+  return {
+    ...actual,
+    fetchMarketData: fetchMarketDataMock,
+  };
+});
 
 describe("GET /api/market", () => {
   beforeEach(() => {
@@ -17,7 +25,7 @@ describe("GET /api/market", () => {
       status: 200,
       data: {
         data: {
-          AAA: { symbol: "AAA" },
+          AAA: { name: "AAA" },
         },
       },
     };
@@ -30,9 +38,20 @@ describe("GET /api/market", () => {
     expect(body).toEqual(payload);
   });
 
-  it("retorna 500 quando o serviço falha", async () => {
+  it("retorna 503 quando há falha de conexão com a API de mercado", async () => {
     const { GET } = await import("../route");
-    fetchMarketDataMock.mockRejectedValue(new Error("network error"));
+    fetchMarketDataMock.mockRejectedValue(new MarketDataConnectionError("Conexão falhou"));
+
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body.error).toMatch(/Não foi possível se conectar com o servidor/);
+  });
+
+  it("retorna 500 quando ocorre outro erro inesperado", async () => {
+    const { GET } = await import("../route");
+    fetchMarketDataMock.mockRejectedValue(new Error("unexpected crash"));
 
     const response = await GET();
     const body = await response.json();

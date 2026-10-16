@@ -1,14 +1,22 @@
 import { NextResponse } from "next/server";
 
-import { fetchMarketData } from "@/services/market-data";
+import { fetchMarketData, MarketDataConnectionError } from "@/services/market-data";
 
 export async function GET() {
   try {
     const payload = await fetchMarketData();
-    const status = payload.status >= 100 && payload.status <= 599 ? payload.status : 200;
-
-    return NextResponse.json(payload, { status });
+    return NextResponse.json(payload, { status: 200 });
   } catch (error) {
+    if (error instanceof MarketDataConnectionError) {
+      return NextResponse.json(
+        {
+          status: 503,
+          error: "Não foi possível se conectar com o servidor de dados de mercado no momento.",
+        },
+        { status: 503 },
+      );
+    }
+
     console.error("Market data fetch failed", error);
     return NextResponse.json(
       {

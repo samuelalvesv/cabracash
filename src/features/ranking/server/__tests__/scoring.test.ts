@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { scoreEtfs } from "@/features/ranking/server/scoring";
-import { findEmptyIndicators } from "@/features/ranking/server/validation";
 import type { EtfEntry } from "@/features/ranking/server/types";
 
-const baseMetrics = {
+const baseMetrics: EtfEntry["metrics"] = {
   atr: 1.2,
   close: 100,
   open: 99.5,
@@ -24,12 +23,11 @@ const baseMetrics = {
   tr1m: 3,
   ch1d: 1.2,
   premarketChangePercent: 0.4,
-  afterHoursChangePercent: 0.3,
-  trackingDifference: 0.4,
+  postmarketChangePercent: 0.3,
 };
 
 describe("scoreEtfs", () => {
-  it("ordenates ETFs por score final", () => {
+  it("ordena ETFs por score final", () => {
     const entries: EtfEntry[] = [
       {
         symbol: "AAA",
@@ -43,7 +41,6 @@ describe("scoreEtfs", () => {
           dividendGrowthYears: 5,
           dividendGrowth: 4,
           beta: 0.95,
-          trackingDifference: 0.3,
         },
       },
       {
@@ -58,7 +55,6 @@ describe("scoreEtfs", () => {
           dividendGrowthYears: 1,
           dividendGrowth: -5,
           beta: 1.4,
-          trackingDifference: 2.0,
           rsi: 65,
           high52ch: -0.5,
           low52ch: 40,
@@ -69,7 +65,7 @@ describe("scoreEtfs", () => {
           tr1m: -1,
           ch1d: -0.8,
           premarketChangePercent: -0.4,
-          afterHoursChangePercent: -0.5,
+          postmarketChangePercent: -0.5,
         },
       },
     ];
@@ -105,7 +101,7 @@ describe("scoreEtfs", () => {
           tr1m: null,
           ch1d: null,
           premarketChangePercent: null,
-          afterHoursChangePercent: null,
+          postmarketChangePercent: null,
         },
       },
       {
@@ -131,11 +127,15 @@ describe("scoreEtfs", () => {
     expect(lowDataEtf?.scores.final).toBeGreaterThan(0);
     expect(lowDataEtf?.scores.final).toBeLessThanOrEqual(100);
   });
-});
 
-describe("findEmptyIndicators", () => {
-  it("detecta indicadores sempre nulos", async () => {
-    const failing = await findEmptyIndicators();
-    expect(failing).toEqual([]);
+  it("desempata alfabeticamente por símbolo quando scores são idênticos", () => {
+    const entries: EtfEntry[] = [
+      { symbol: "ZZZ", metrics: { ...baseMetrics } },
+      { symbol: "AAA", metrics: { ...baseMetrics } },
+    ];
+
+    const scored = scoreEtfs(entries);
+    expect(scored.map((item) => item.symbol)).toEqual(["AAA", "ZZZ"]);
   });
 });
+

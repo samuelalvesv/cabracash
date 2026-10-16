@@ -1,41 +1,43 @@
-export type RawEtfMetrics = Record<string, number | string | null>;
+import type { MarketDataRecord } from "@/services/market-data";
+
+export type RawEtfMetrics = MarketDataRecord;
 
 export interface EtfEntry {
   symbol: string;
   metrics: RawEtfMetrics;
 }
 
-export interface FeatureSet {
-  expenseRatio: number | null;
-  liquidityComposite: number | null;
-  holdings: number | null;
-  assetsLog: number | null;
-  issuerScore: number | null;
-  riskAdjustedReturn: number | null;
-  dividendYield: number | null;
-  dividendStability: number | null;
-  trackingEfficiency: number | null;
-  riskBalance: number | null;
-  intradayMomentum: number | null;
-  discountFromHigh: number | null;
-  distanceFromLow: number | null;
-  movingAverageCombo: number | null;
-  rsi: number | null;
-  volumePulse: number | null;
-  momentum1m: number | null;
-  gapSignal: number | null;
-}
+export type FundamentalFeatureKey =
+  | "expenseRatio"
+  | "liquidityComposite"
+  | "holdings"
+  | "assetsLog"
+  | "issuerScore"
+  | "riskAdjustedReturn"
+  | "dividendYield"
+  | "dividendStability"
+  | "riskBalance";
 
-export interface ScaledFeatureSet {
-  [key: string]: number;
-}
+export type OpportunityFeatureKey =
+  | "intradayMomentum"
+  | "discountFromHigh"
+  | "distanceFromLow"
+  | "movingAverageCombo"
+  | "rsi"
+  | "volumePulse"
+  | "momentum1m"
+  | "gapSignal";
+
+export type FeatureKey = FundamentalFeatureKey | OpportunityFeatureKey;
+
+export type FeatureSet = Record<FeatureKey, number | null>;
 
 export interface ScoreBreakdown {
   fundamentals: number;
   opportunity: number;
   final: number;
-  fundamentalsComponents: Record<string, number>;
-  opportunityComponents: Record<string, number>;
+  fundamentalsComponents: Record<FundamentalFeatureKey, number>;
+  opportunityComponents: Record<OpportunityFeatureKey, number>;
 }
 
 export interface RankedEtf {
@@ -44,3 +46,4 @@ export interface RankedEtf {
   scores: ScoreBreakdown;
   raw: RawEtfMetrics;
 }
+

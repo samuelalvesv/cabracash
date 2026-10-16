@@ -1,0 +1,10 @@
+{
+  "entries": [
+    {
+      "path": ".agents/vendor/vercel-plugin"
+    },
+    {
+      "path": ".agents/vendor/ponytail"
+    }
+  ]
+}

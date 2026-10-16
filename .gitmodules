@@ -1,0 +1,6 @@
+[submodule ".agents/vendor/vercel-plugin"]
+	path = .agents/vendor/vercel-plugin
+	url = https://github.com/vercel/vercel-plugin.git
+[submodule ".agents/vendor/ponytail"]
+	path = .agents/vendor/ponytail
+	url = https://github.com/dietrichgebert/ponytail.git

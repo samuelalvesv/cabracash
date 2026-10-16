@@ -23,7 +23,6 @@ import {
   TableRow,
   Tooltip,
   Typography,
-  useTheme,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -32,21 +31,21 @@ import { FUNDAMENTAL_DEFINITIONS, OPPORTUNITY_DEFINITIONS } from "@/features/ran
 import type { RankedEtf } from "@/features/ranking/server/types";
 import { buildDetailSections, formatDetailValue } from "@/features/ranking/server/detailSections";
 import { formatScore } from "@/shared/utils/formatters";
-import { buildRankingQueryString, loadRankingFilters } from "@/features/ranking/components/rankingFilterStorage";
+import { useRankingHref } from "@/features/ranking/components/useRankingHref";
 
 interface EtfDetailsViewProps {
   etf: RankedEtf;
 }
 
 export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
-  const theme = useTheme();
   const searchParams = useSearchParams();
+  const rankingHref = useRankingHref(searchParams);
 
   const detailSections = useMemo(() => buildDetailSections(etf), [etf]);
 
   const fundamentalsBreakdown = useMemo(() => {
     return FUNDAMENTAL_DEFINITIONS.map((def) => {
-      const weight = def.weight ?? 0;
+      const weight = def.weight;
       const weightedScore = etf.scores.fundamentalsComponents[def.key] ?? 0;
       const normalizedScore = weight > 0 ? weightedScore / weight : 0;
       return {
@@ -62,7 +61,7 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
 
   const opportunityBreakdown = useMemo(() => {
     return OPPORTUNITY_DEFINITIONS.map((def) => {
-      const weight = def.weight ?? 0;
+      const weight = def.weight;
       const weightedScore = etf.scores.opportunityComponents[def.key] ?? 0;
       const normalizedScore = weight > 0 ? weightedScore / weight : 0;
       return {
@@ -77,43 +76,21 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
   }, [etf]);
 
   const rawJson = useMemo(() => JSON.stringify(etf.raw, null, 2), [etf.raw]);
-  const backLinkQuery = useMemo(() => {
-    const params = new URLSearchParams();
-    const allowedKeys = ["search", "minFundamentals", "minOpportunity", "page"];
-    allowedKeys.forEach((key) => {
-      const value = searchParams.get(key);
-      if (typeof value === "string" && value.length > 0) {
-        params.set(key, value);
-      }
-    });
-
-    if (params.size > 0) {
-      return `?${params.toString()}`;
-    }
-
-    const stored = loadRankingFilters();
-    if (stored) {
-      return buildRankingQueryString(stored);
-    }
-
-    return "";
-  }, [searchParams]);
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 } }}>
       <Stack spacing={4}>
         <Stack spacing={2}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
+          <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "space-between" }}>
             <Typography
               variant="h4"
-              fontWeight={700}
-              sx={{ fontSize: { xs: "1.8rem", md: "2.2rem" } }}
+              sx={{ fontWeight: 700, fontSize: { xs: "1.8rem", md: "2.2rem" } }}
             >
               {etf.symbol}
             </Typography>
             <Button
               component={Link}
-              href={`/${backLinkQuery}`}
+              href={rankingHref}
               variant="outlined"
               color="inherit"
               startIcon={<ArrowBackIcon fontSize="small" />}
@@ -124,15 +101,18 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
           </Stack>
           <Typography
             variant="h6"
-            fontWeight={600}
-            sx={{ fontSize: { xs: "1rem", md: "1.25rem" } }}
+            sx={{ fontWeight: 600, fontSize: { xs: "1rem", md: "1.25rem" } }}
           >
-            {etf.raw.name ?? "Nome indisponível"}
+            {typeof etf.raw.name === "string" && etf.raw.name.length > 0 ? etf.raw.name : "Nome indisponível"}
           </Typography>
-          <Stack direction="row" spacing={1} flexWrap="wrap">
-            <Chip label={`Categoria: ${etf.raw.etfCategory ?? "Não informada"}`} color="primary" variant="outlined" />
-            {etf.raw.issuer && <Chip label={`Emissor: ${etf.raw.issuer}`} variant="outlined" />}
-            {etf.raw.exchange && <Chip label={etf.raw.exchange} variant="outlined" />}
+          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+            <Chip
+              label={`Categoria: ${typeof etf.raw.etfCategory === "string" ? etf.raw.etfCategory : "Não informada"}`}
+              color="primary"
+              variant="outlined"
+            />
+            {typeof etf.raw.issuer === "string" && <Chip label={`Emissor: ${etf.raw.issuer}`} variant="outlined" />}
+            {typeof etf.raw.exchange === "string" && <Chip label={etf.raw.exchange} variant="outlined" />}
           </Stack>
         </Stack>
 
@@ -150,7 +130,7 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               Score Final
             </Typography>
-            <Typography variant="h3" fontWeight={700}>
+            <Typography variant="h3" sx={{ fontWeight: 700 }}>
               {formatScore(etf.scores.final)}
             </Typography>
             <Typography variant="body2" color="text.secondary">
@@ -161,7 +141,7 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               Fundamentos
             </Typography>
-            <Typography variant="h4" fontWeight={700}>
+            <Typography variant="h4" sx={{ fontWeight: 700 }}>
               {formatScore(etf.scores.fundamentals)}
             </Typography>
             <LinearProgress variant="determinate" value={etf.scores.fundamentals} sx={{ mt: 2 }} />
@@ -170,7 +150,7 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               Oportunidade
             </Typography>
-            <Typography variant="h4" fontWeight={700}>
+            <Typography variant="h4" sx={{ fontWeight: 700 }}>
               {formatScore(etf.scores.opportunity)}
             </Typography>
             <LinearProgress color="secondary" variant="determinate" value={etf.scores.opportunity} sx={{ mt: 2 }} />
@@ -207,7 +187,7 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
                       <TableCell align="right">{formatDetailValue(item.value, item.format)}</TableCell>
                       <TableCell align="right">
                         <Tooltip title={`Peso ${item.weight ?? 0}`}>
-                          <Typography variant="body2" fontWeight={600} component="span">
+                          <Typography variant="body2" component="span" sx={{ fontWeight: 600 }}>
                             {formatScore(item.score)}
                           </Typography>
                         </Tooltip>
@@ -238,7 +218,7 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
                       <TableCell align="right">{formatDetailValue(item.value, item.format)}</TableCell>
                       <TableCell align="right">
                         <Tooltip title={`Peso ${item.weight ?? 0}`}>
-                          <Typography variant="body2" fontWeight={600} component="span">
+                          <Typography variant="body2" component="span" sx={{ fontWeight: 600 }}>
                             {formatScore(item.score)}
                           </Typography>
                         </Tooltip>
@@ -267,7 +247,7 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
                         </Typography>
                       </TableCell>
                       <TableCell sx={{ border: 0 }} align="right">
-                        <Typography variant="body2" fontWeight={600}>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
                           {formatDetailValue(item.value, item.format)}
                         </Typography>
                       </TableCell>
@@ -287,7 +267,7 @@ export function EtfDetailsView({ etf }: EtfDetailsViewProps) {
             <Box
               component="pre"
               sx={{
-                bgcolor: theme.palette.mode === "dark" ? "#0f172a" : "grey.900",
+                bgcolor: "grey.900",
                 color: "grey.100",
                 p: 2,
                 borderRadius: 2,

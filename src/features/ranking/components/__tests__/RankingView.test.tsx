@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import RankingView from "@/features/ranking/components/RankingView";
 import * as filterStorage from "@/features/ranking/components/rankingFilterStorage";
 import { FUNDAMENTAL_DEFINITIONS, OPPORTUNITY_DEFINITIONS } from "@/features/ranking/server/metricDefinitions";
-import type { RankedEtf } from "@/features/ranking/server/types";
+import type { FundamentalFeatureKey, OpportunityFeatureKey, RankedEtf } from "@/features/ranking/server/types";
 import ThemeRegistry from "@/theme/ThemeRegistry";
 
 vi.mock("next/link", () => ({
@@ -35,7 +35,6 @@ function buildSampleEtf(symbol: string): RankedEtf {
     riskAdjustedReturn: 0.75,
     dividendYield: 2.5,
     dividendStability: 0.6,
-    trackingEfficiency: 0.01,
     riskBalance: 0.08,
     intradayMomentum: 1.2,
     discountFromHigh: -4,
@@ -47,12 +46,12 @@ function buildSampleEtf(symbol: string): RankedEtf {
     gapSignal: 0.25,
   };
 
-  const fundamentalsComponents: Record<string, number> = {};
+  const fundamentalsComponents = {} as Record<FundamentalFeatureKey, number>;
   FUNDAMENTAL_DEFINITIONS.forEach((def) => {
     fundamentalsComponents[def.key] = (def.weight ?? 0) * 80;
   });
 
-  const opportunityComponents: Record<string, number> = {};
+  const opportunityComponents = {} as Record<OpportunityFeatureKey, number>;
   OPPORTUNITY_DEFINITIONS.forEach((def) => {
     opportunityComponents[def.key] = (def.weight ?? 0) * 70;
   });
@@ -103,9 +102,8 @@ function buildSampleEtf(symbol: string): RankedEtf {
       changeFromOpen: 1.5,
       ch1d: 1.2,
       premarketChangePercent: 0.3,
-      afterHoursChangePercent: 0.2,
-      trackingDifference: 0.4,
-    } as RankedEtf["raw"],
+      postmarketChangePercent: 0.2,
+    },
   };
 }
 

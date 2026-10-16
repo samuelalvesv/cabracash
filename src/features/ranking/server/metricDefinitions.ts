@@ -1,131 +1,131 @@
 import type { MetricFormat } from "@/shared/utils/formatters";
-import type { RankedEtf } from "@/features/ranking/server/types";
+import { FUNDAMENTALS_WEIGHTS, OPPORTUNITY_WEIGHTS } from "@/features/ranking/server/scoring";
+import type {
+  FeatureKey,
+  FundamentalFeatureKey,
+  OpportunityFeatureKey,
+  RankedEtf,
+} from "@/features/ranking/server/types";
 
-export interface MetricDefinition {
-  key: string;
+export interface MetricDefinition<K extends FeatureKey = FeatureKey> {
+  key: K;
   label: string;
   format?: MetricFormat;
-  weight?: number;
+  weight: number;
   getter: (item: RankedEtf) => number | string | null | undefined;
 }
 
-export const FUNDAMENTAL_DEFINITIONS: MetricDefinition[] = [
+export const FUNDAMENTAL_DEFINITIONS: MetricDefinition<FundamentalFeatureKey>[] = [
   {
     key: "expenseRatio",
     label: "Custo",
     format: "percent",
-    weight: 0.12,
+    weight: FUNDAMENTALS_WEIGHTS.expenseRatio,
     getter: (item) => item.raw.expenseRatio as number | null | undefined,
   },
   {
     key: "liquidityComposite",
     label: "Liquidez composta",
-    weight: 0.12,
+    weight: FUNDAMENTALS_WEIGHTS.liquidityComposite,
     getter: (item) => item.features.liquidityComposite,
   },
   {
     key: "holdings",
     label: "Holdings",
     format: "number",
-    weight: 0.08,
-    getter: (item) => (item.raw.holdings ?? item.raw.holdingsCount) as number | null | undefined,
+    weight: FUNDAMENTALS_WEIGHTS.holdings,
+    getter: (item) => item.raw.holdings as number | null | undefined,
   },
   {
     key: "assetsLog",
     label: "Assets",
     format: "compact",
-    weight: 0.06,
+    weight: FUNDAMENTALS_WEIGHTS.assetsLog,
     getter: (item) => item.raw.assets as number | null | undefined,
   },
   {
     key: "issuerScore",
     label: "Emissor (score)",
-    weight: 0.08,
+    weight: FUNDAMENTALS_WEIGHTS.issuerScore,
     getter: (item) => item.features.issuerScore,
   },
   {
     key: "riskAdjustedReturn",
     label: "Risco/retorno",
-    weight: 0.18,
+    weight: FUNDAMENTALS_WEIGHTS.riskAdjustedReturn,
     getter: (item) => item.features.riskAdjustedReturn,
   },
   {
     key: "dividendYield",
     label: "Dividend Yield",
     format: "percent",
-    weight: 0.07,
+    weight: FUNDAMENTALS_WEIGHTS.dividendYield,
     getter: (item) => item.raw.dividendYield as number | null | undefined,
   },
   {
     key: "dividendStability",
     label: "Estabilidade de dividendos",
-    weight: 0.07,
+    weight: FUNDAMENTALS_WEIGHTS.dividendStability,
     getter: (item) => item.features.dividendStability,
-  },
-  {
-    key: "trackingEfficiency",
-    label: "Tracking (abs)",
-    weight: 0.1,
-    getter: (item) => item.features.trackingEfficiency,
   },
   {
     key: "riskBalance",
     label: "Risco balanceado",
-    weight: 0.12,
+    weight: FUNDAMENTALS_WEIGHTS.riskBalance,
     getter: (item) => item.features.riskBalance,
   },
 ];
 
-export const OPPORTUNITY_DEFINITIONS: MetricDefinition[] = [
+export const OPPORTUNITY_DEFINITIONS: MetricDefinition<OpportunityFeatureKey>[] = [
   {
     key: "intradayMomentum",
     label: "Variação diária",
     format: "percent",
-    weight: 0.12,
+    weight: OPPORTUNITY_WEIGHTS.intradayMomentum,
     getter: (item) => item.raw.ch1d as number | null | undefined,
   },
   {
     key: "discountFromHigh",
     label: "Desconto topo 52s",
-    weight: 0.18,
+    weight: OPPORTUNITY_WEIGHTS.discountFromHigh,
     getter: (item) => item.features.discountFromHigh,
   },
   {
     key: "distanceFromLow",
     label: "Distância fundo 52s",
-    weight: 0.15,
+    weight: OPPORTUNITY_WEIGHTS.distanceFromLow,
     getter: (item) => item.features.distanceFromLow,
   },
   {
     key: "movingAverageCombo",
     label: "Médias móveis",
-    weight: 0.15,
+    weight: OPPORTUNITY_WEIGHTS.movingAverageCombo,
     getter: (item) => item.features.movingAverageCombo,
   },
   {
     key: "rsi",
     label: "RSI",
-    weight: 0.12,
+    weight: OPPORTUNITY_WEIGHTS.rsi,
     getter: (item) => item.raw.rsi as number | null | undefined,
   },
   {
     key: "volumePulse",
     label: "Volume relativo",
-    weight: 0.1,
+    weight: OPPORTUNITY_WEIGHTS.volumePulse,
     getter: (item) => item.raw.relativeVolume as number | null | undefined,
   },
   {
     key: "momentum1m",
     label: "Retorno 1m",
     format: "percent",
-    weight: 0.08,
+    weight: OPPORTUNITY_WEIGHTS.momentum1m,
     getter: (item) => item.raw.tr1m as number | null | undefined,
   },
   {
     key: "gapSignal",
     label: "Pré/pós-market",
     format: "percent",
-    weight: 0.1,
+    weight: OPPORTUNITY_WEIGHTS.gapSignal,
     getter: (item) => item.features.gapSignal,
   },
 ];

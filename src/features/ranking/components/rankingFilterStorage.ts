@@ -1,5 +1,3 @@
-"use client";
-
 export const RANKING_FILTERS_EVENT = "ranking:filters-updated";
 
 export interface RankingFilterSnapshot {
@@ -11,7 +9,78 @@ export interface RankingFilterSnapshot {
 
 const STORAGE_KEY = "ranking:filters";
 
-export function saveRankingFilters(snapshot: RankingFilterSnapshot) {
+export function clampScore(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.min(Math.max(value, 0), 100);
+}
+
+export function parseThresholdInput(value: string | undefined | null): number {
+  if (!value) {
+    return 0;
+  }
+
+  const sanitized = value.replace(",", ".");
+  const numeric = Number.parseFloat(sanitized);
+  if (Number.isNaN(numeric)) {
+    return 0;
+  }
+
+  return clampScore(numeric);
+}
+
+export function sanitizeThresholdInput(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return "";
+  }
+
+  const normalized = parseThresholdInput(trimmed);
+  return normalized > 0 ? normalized.toString() : "";
+}
+
+export function normalizePage(value: string | number | undefined | null): number {
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value >= 1 ? Math.round(value) : 1;
+  }
+  if (!value) {
+    return 1;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isNaN(parsed) || parsed < 1 ? 1 : parsed;
+}
+
+function extractParam(value: string | string[] | undefined | null): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export function parseRankingSearchParams(
+  searchParams?: URLSearchParams | Record<string, string | string[] | undefined> | null,
+): RankingFilterSnapshot {
+  if (!searchParams) {
+    return { page: 1, search: "", minFundamentals: 0, minOpportunity: 0 };
+  }
+
+  const get = (key: string): string | undefined => {
+    if (searchParams instanceof URLSearchParams) {
+      return searchParams.get(key) ?? undefined;
+    }
+    return extractParam(searchParams[key]);
+  };
+
+  return {
+    page: normalizePage(get("page")),
+    search: (get("search") ?? "").trim(),
+    minFundamentals: parseThresholdInput(get("minFundamentals")),
+    minOpportunity: parseThresholdInput(get("minOpportunity")),
+  };
+}
+
+export function saveRankingFilters(snapshot: RankingFilterSnapshot): void {
   if (typeof window === "undefined") {
     return;
   }
@@ -49,38 +118,31 @@ export function loadRankingFilters(): RankingFilterSnapshot | null {
     }
 
     return {
-      page: parsed.page,
-      search: parsed.search,
-      minFundamentals: parsed.minFundamentals,
-      minOpportunity: parsed.minOpportunity,
+      page: normalizePage(parsed.page),
+      search: parsed.search.trim(),
+      minFundamentals: clampScore(parsed.minFundamentals),
+      minOpportunity: clampScore(parsed.minOpportunity),
     };
   } catch {
     return null;
   }
 }
 
-function clampScore(value: number): number {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
-  return Math.min(Math.max(value, 0), 100);
-}
-
-export function buildRankingQueryString(snapshot: RankingFilterSnapshot): string {
+export function buildRankingQueryString(snapshot: Partial<RankingFilterSnapshot>): string {
   const params = new URLSearchParams();
-  const trimmedSearch = snapshot.search.trim();
+  const trimmedSearch = (snapshot.search ?? "").trim();
   if (trimmedSearch.length > 0) {
     params.set("search", trimmedSearch);
   }
-  const fundamentals = clampScore(snapshot.minFundamentals);
+  const fundamentals = clampScore(snapshot.minFundamentals ?? 0);
   if (fundamentals > 0) {
     params.set("minFundamentals", fundamentals.toString());
   }
-  const opportunity = clampScore(snapshot.minOpportunity);
+  const opportunity = clampScore(snapshot.minOpportunity ?? 0);
   if (opportunity > 0) {
     params.set("minOpportunity", opportunity.toString());
   }
-  const page = Number.isFinite(snapshot.page) ? Math.max(1, Math.round(snapshot.page)) : 1;
+  const page = normalizePage(snapshot.page);
   if (page > 1) {
     params.set("page", page.toString());
   }

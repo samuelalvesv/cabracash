@@ -1,16 +1,17 @@
-import React, { useContext } from "react";
+import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import ThemeRegistry, { ColorModeContext } from "@/theme/ThemeRegistry";
+import ThemeRegistry from "@/theme/ThemeRegistry";
+import { useColorMode } from "@/shared/hooks/useColorMode";
 
 function ModeConsumer() {
-  const { mode } = useContext(ColorModeContext);
+  const { mode } = useColorMode();
   return <span data-testid="current-mode">{mode}</span>;
 }
 
 function ToggleConsumer() {
-  const { mode, toggleColorMode } = useContext(ColorModeContext);
+  const { mode, toggleColorMode } = useColorMode();
   return (
     <button type="button" onClick={toggleColorMode}>
       toggle-{mode}

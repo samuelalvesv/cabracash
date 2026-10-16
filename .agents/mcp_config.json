@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "mui-mcp": {
+      "command": "npx",
+      "args": ["-y", "@mui/mcp@latest"]
+    },
+    "vercel": {
+      "serverUrl": "https://mcp.vercel.com"
+    },
+    "next-devtools": {
+      "command": "npx",
+      "args": ["-y", "next-devtools-mcp@latest"]
+    }
+  }
+}

@@ -15,6 +15,12 @@ export function safeNumber(value: unknown, fallback = 0): number {
   return fallback;
 }
 
+export function toNullableNumber(value: unknown): number | null {
+  const numeric = safeNumber(value, Number.NaN);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+
 export function mean(values: Array<number | null | undefined>): number {
   const filtered = values.filter((value): value is number => typeof value === "number" && Number.isFinite(value));
   if (filtered.length === 0) {

@@ -1,54 +1,28 @@
 import RankingView from "@/features/ranking/components/RankingView";
+import { parseRankingSearchParams } from "@/features/ranking/components/rankingFilterStorage";
 import { fetchRankedEtfs } from "@/features/ranking/server/scoring";
 
 interface PageProps {
-  searchParams?: Record<string, string | string[] | undefined>;
-}
-
-function extractParam(value: string | string[] | undefined): string | undefined {
-  if (!value) {
-    return undefined;
-  }
-  return Array.isArray(value) ? value[0] : value;
-}
-
-function normalizePage(value: string | undefined): number {
-  if (!value) {
-    return 1;
-  }
-  const parsed = Number.parseInt(value, 10);
-  return Number.isNaN(parsed) || parsed < 1 ? 1 : parsed;
-}
-
-function normalizeScoreThreshold(value: string | undefined): number {
-  if (!value) {
-    return 0;
-  }
-  const sanitized = value.replace(",", ".");
-  const parsed = Number.parseFloat(sanitized);
-  if (Number.isNaN(parsed)) {
-    return 0;
-  }
-  return Math.min(Math.max(parsed, 0), 100);
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }
 
 const PAGE_SIZE = 12;
 
-export default async function Home({ searchParams }: PageProps) {
-  const rankedEtfs = await fetchRankedEtfs();
-  const initialPage = normalizePage(extractParam(searchParams?.page));
-  const initialSearch = extractParam(searchParams?.search) ?? "";
-  const initialMinFundamentals = normalizeScoreThreshold(extractParam(searchParams?.minFundamentals));
-  const initialMinOpportunity = normalizeScoreThreshold(extractParam(searchParams?.minOpportunity));
+export default async function Home(props: PageProps) {
+  const [rankedEtfs, searchParams] = await Promise.all([
+    fetchRankedEtfs(),
+    props.searchParams,
+  ]);
+  const filters = parseRankingSearchParams(searchParams);
 
   return (
     <RankingView
       items={rankedEtfs}
       pageSize={PAGE_SIZE}
-      initialPage={initialPage}
-      initialSearch={initialSearch}
-      initialMinFundamentals={initialMinFundamentals}
-      initialMinOpportunity={initialMinOpportunity}
+      initialPage={filters.page}
+      initialSearch={filters.search}
+      initialMinFundamentals={filters.minFundamentals}
+      initialMinOpportunity={filters.minOpportunity}
     />
   );
 }
