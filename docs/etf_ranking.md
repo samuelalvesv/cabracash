@@ -1,203 +1,165 @@
-# Sistema de Pontuação e Ranking de ETFs
+# Metodologia de Pontuação e Ranking de ETFs
 
-A metodologia combina **Fundamentos (55%)** e **Oportunidade (45%)**, utilizando métricas normalizadas e penalizações contextuais para evitar armadilhas de liquidez ou momentum.
-
----
-
-## 1. Indicadores monitorados
-
-Os campos são obtidos via StockAnalysis; quando um dado não existe, aplicamos nota neutra (50) após a normalização.
-
-### Fundamentos
-
-| Componente                | Campo (JSON) / Derivação                                                  | Nota                                  |
-|---------------------------|---------------------------------------------------------------------------|---------------------------------------|
-| Custo total               | `expenseRatio`                                                            | menor = melhor                        |
-| Liquidez composta         | média de `log10(dollarVolume)`, `log10(volume)` e `log1p(relativeVolume)` | ampla e resiliente                    |
-| Diversificação            | `holdings` ou `holdingsCount`                                             | carteiras concentradas perdem pontos  |
-| Patrimônio sob gestão     | `log10(assets)`                                                           | fundos muito pequenos são penalizados |
-| Qualidade do emissor      | mapa curado (Vanguard, BlackRock etc.)                                    | emissores novos recebem score neutro  |
-| Risco/Retorno             | Sharpe & Sortino normalizados                                             | consistência de performance           |
-| Dividendos – Yield        | `dividendYield`                                                           | valor absoluto                        |
-| Dividendos – Estabilidade | combinação de `dividendGrowthYears` e `dividendGrowth`                    | normalizados 0–1                      |
-| Tracking efficiency (abs) | média do valor absoluto de `trackingDifference` / `trackingError*`        | menor = melhor                        |
-| Risco balanceado          | média de `                                                                | beta - 1                              |` e `ATR/preço`                     | volatilidade estrutural |
-
-### Oportunidade
-
-| Componente             | Campo (JSON) / Derivação                                      | Nota                               |
-|------------------------|---------------------------------------------------------------|------------------------------------|
-| Momentum intradiário   | `ch1d`                                                        | aponta direção diária              |
-| Desconto vs. topo 52s  | `high52ch`                                                    | valores negativos indicam desconto |
-| Distância do fundo 52s | `low52ch`                                                     | proximidade de suportes            |
-| Médias móveis          | média de `ma20ch`, `ma50ch`, `ma150ch`, `ma200ch`             | convergência de tendências         |
-| RSI                    | `rsi`                                                         | sobrevendido / comprado            |
-| Pulso de volume        | `log1p(relativeVolume)`                                       | interesse recente                  |
-| Momentum 1 mês         | `tr1m`                                                        | confirma tendência média           |
-| Gap pré/pós-market     | média de `premarketChangePercent` e `afterHoursChangePercent` | sinais fora do pregão              |
-
-> *Se `tracking*` não estiver disponível, o ETF recebe nota neutra nesse componente.
+O CabraCash avalia e classifica ETFs combinando duas dimensões analíticas: **Fundamentos (55%)** e **Oportunidade (45%)**. A metodologia utiliza métricas normalizadas e penalizações contextuais para entregar uma ordenação comparável entre ativos.
 
 ---
 
-## 2. Pré-processamento
+## 1. Indicadores Utilizados
 
-1. **Conversão segura**: valores são convertidos para número (`float`), descartando `NaN`.
-2. **Transformações**:
-   - Liquidez → `log10` ou `log1p` para reduzir amplitude.
-   - Risco/retorno → Sharpe e Sortino são limitados a intervalos realistas.
-   - Dividendos → crescimento e anos são normalizados para [0, 1].
-3. **Tracking**: média do valor absoluto de todas as métricas de tracking disponíveis.
-4. **Composites**:
-   - Liquidez composta = média dos logs de volume em dólar, volume em cotas e volume relativo.
-   - Risco balanceado = média de `|beta - 1|` e `ATR/preço`.
-   - Gap pré/pós-market = média simples de pré e pós-mercado.
+Os dados brutos são obtidos da API de mercado via agregação dos endpoints `initial` e `data-points`. Quando um dado numérico não está disponível, o indicador recebe nota neutra (50) após a etapa de normalização.
 
-Dados ausentes permanecem como `null` e recebem nota 50 após a normalização.
+### Fundamentos (55%)
+
+| Indicador | Código / Origem | Direção |
+| :--- | :--- | :--- |
+| Custo Total | `expenseRatio` | Menor é melhor |
+| Liquidez Composta | Média de `log10(dollarVolume)`, `log10(volume)` e `log1p(relativeVolume)` | Maior é melhor |
+| Diversificação | `holdings` | Maior é melhor |
+| Patrimônio sob Gestão | `log10(assets)` | Maior é melhor |
+| Qualidade do Emissor | Mapeamento de confiabilidade da gestora (Vanguard, BlackRock, etc.) | Maior é melhor |
+| Risco/Retorno Ajustado | Média normalizada de `sharpeRatio` e `sortinoRatio` | Maior é melhor |
+| Dividend Yield | `dividendYield` | Maior é melhor |
+| Estabilidade de Dividendos | Combinação normalizada de `dividendGrowthYears` e `dividendGrowth` | Maior é melhor |
+| Risco Balanceado | Média de `|beta - 1|` e `ATR / preço base` | Menor é melhor |
+
+### Oportunidade (45%)
+
+| Indicador | Código / Origem | Direção |
+| :--- | :--- | :--- |
+| Momentum Intradiário | `ch1d` | Maior é melhor |
+| Desconto vs. Topo 52 Semanas | `high52ch` | Menor é melhor (valores negativos indicam desconto) |
+| Distância do Fundo 52 Semanas | `low52ch` | Maior é melhor |
+| Tendência de Médias Móveis | Média de `ma20ch`, `ma50ch`, `ma150ch` e `ma200ch` | Maior é melhor |
+| RSI (Índice de Força Relativa) | `rsi` | Maior é melhor |
+| Pulso de Volume | `log1p(relativeVolume)` | Maior é melhor |
+| Momentum 1 Mês | `tr1m` | Maior é melhor |
+| Sinal de Gap | Média de `premarketChangePercent` e `postmarketChangePercent` | Maior é melhor |
+
+---
+
+## 2. Pré-processamento e Transformações
+
+1. **Conversão Segura**: Valores numéricos são validados, descartando representações inválidas (`NaN`).
+2. **Escala Logarítmica**: Indicadores com alta dispersão de magnitude (`assets`, `volume`, `dollarVolume`, `relativeVolume`) são convertidos para base logarítmica (`log10` ou `log1p`).
+3. **Limitação de Risco/Retorno**: Índices Sharpe e Sortino são limitados a intervalos consistentes antes da normalização.
+4. **Composição de Liquidez**: Agregação linear dos logs de volume financeiro, cotas negociadas e volume relativo.
+5. **Composição de Risco Balanceado**: Combina o desvio de beta em relação ao mercado (`|beta - 1|`) com a volatilidade relativa (`ATR / preço base`).
+6. **Composição de Gap**: Média aritmética simples das variações registradas no pré-mercado e no pós-mercado.
 
 ---
 
 ## 3. Normalização
 
-Cada vetor de métricas é:
+Para cada indicador no universo de ETFs:
 
-1. **Winsorizado** nos percentis 2% e 98%, reduzindo outliers.
-2. **Transformado** para o intervalo 0–100 via min–max. Métricas onde “menor = melhor” são invertidas antes do min–max.
-3. Valores ausentes recebem 50 (neutro).
-
----
-
-## 4. Fundamentos (55%)
-
-| Indicador                        | Símbolo           | Peso |
-|----------------------------------|-------------------|------|
-| Custo total                      | `S_custo`         | 12%  |
-| Liquidez composta                | `S_liq_comp`      | 12%  |
-| Diversificação (holdings)        | `S_holdings`      | 8%   |
-| Patrimônio sob gestão            | `S_assets`        | 6%   |
-| Qualidade do emissor             | `S_emissor`       | 8%   |
-| Risco/Retorno (Sharpe + Sortino) | `S_risk_adj`      | 18%  |
-| Dividend Yield                   | `S_yield`         | 7%   |
-| Estabilidade de dividendos       | `S_div_stability` | 7%   |
-| Tracking efficiency              | `S_tracking`      | 10%  |
-| Risco balanceado (beta + ATR)    | `S_risk_balance`  | 12%  |
-
-```
-FundamentalsScore = Σ(peso_i * score_i) / Σ(peso_i)
-```
+1. **Winsorização**: Os limites extremos são aparados nos percentis 2% e 98%, prevenindo distorções provocadas por outliers anômalos.
+2. **Min-Max (0 a 100)**: Os valores resultantes são mapeados para a escala linear de 0 a 100.
+3. **Inversão de Polaridade**: Em métricas onde valores menores representam melhor desempenho (`expenseRatio`, `high52ch`, `riskBalance`), o score é invertido antes da atribuição final (`100 - score`).
+4. **Valores Ausentes**: ETFs sem registros para determinada métrica recebem a nota neutra padrão de 50.
 
 ---
 
-## 5. Oportunidade (45%)
+## 4. Ponderação de Fundamentos (55%)
 
-| Indicador            | Símbolo       | Peso |
-|----------------------|---------------|------|
-| Momentum intradiário | `S_ch1d`      | 12%  |
-| Desconto topo 52s    | `S_top52`     | 18%  |
-| Distância fundo 52s  | `S_bottom52`  | 15%  |
-| Médias móveis        | `S_ma_combo`  | 15%  |
-| RSI                  | `S_rsi`       | 12%  |
-| Pulso de volume      | `S_vol_pulse` | 10%  |
-| Momentum 1m          | `S_tr1m`      | 8%   |
-| Gap pré/pós-market   | `S_gap`       | 10%  |
+| Indicador | Símbolo | Peso |
+| :--- | :--- | :--- |
+| Custo Total | `S_custo` | 14% |
+| Liquidez Composta | `S_liq_comp` | 14% |
+| Diversificação (`holdings`) | `S_holdings` | 8% |
+| Patrimônio (`assets`) | `S_assets` | 8% |
+| Qualidade do Emissor | `S_emissor` | 8% |
+| Risco/Retorno (`sharpeRatio` + `sortinoRatio`) | `S_risk_adj` | 20% |
+| Dividend Yield | `S_yield` | 7% |
+| Estabilidade de Dividendos | `S_div_stability` | 7% |
+| Risco Balanceado (`beta` + `ATR`) | `S_risk_balance` | 14% |
 
 ```
-OpportunityScore = Σ(peso_i * score_i) / Σ(peso_i)
+FundamentalsScore = Σ (peso_i * score_i) / Σ (peso_i)
 ```
-
-### Filtro anti value-trap
-
-Após o cálculo, aplicamos penalização de 15% no `OpportunityScore` se:
-
-- `RSI < 20`, **e**
-- `log1p(relativeVolume) < log1p(1)` (baixa confirmação de volume).
-
-Essa regra evita ranquear ativos com “queda sem fluxo” apenas porque estão baratos.
 
 ---
 
-## 6. Nota final e ordenação
+## 5. Ponderação de Oportunidade (45%)
+
+| Indicador | Símbolo | Peso |
+| :--- | :--- | :--- |
+| Momentum Intradiário | `S_ch1d` | 12% |
+| Desconto vs. Topo 52 Semanas | `S_top52` | 18% |
+| Distância do Fundo 52 Semanas | `S_bottom52` | 15% |
+| Tendência de Médias Móveis | `S_ma_combo` | 15% |
+| RSI | `S_rsi` | 12% |
+| Pulso de Volume | `S_vol_pulse` | 10% |
+| Momentum 1 Mês | `S_tr1m` | 8% |
+| Sinal de Gap | `S_gap` | 10% |
+
+```
+OpportunityScore = Σ (peso_i * score_i) / Σ (peso_i)
+```
+
+### Filtro de Proteção contra Queda sem Volume (Value Trap)
+
+Aplica-se uma penalização de 15% sobre o `OpportunityScore` quando o ativo cumpre simultaneamente:
+- `rsi < 20`
+- `relativeVolume < 1` (volume inferior à média histórica)
+
+Essa regra impede que fundos em forte tendência de desvalorização sem interesse de compra recebam pontuação artificialmente inflada apenas pelo critério de desconto.
+
+---
+
+## 6. Score Final e Critérios de Ordenação
+
+O score consolidado é calculado pela ponderação direta:
 
 ```
 FinalScore = 0.55 * FundamentalsScore + 0.45 * OpportunityScore
 ```
 
-Empates são resolvidos por:
-
+A listagem é ordenada em ordem decrescente de `FinalScore`. Os empates são resolvidos sequencialmente por:
 1. Maior `FundamentalsScore`.
-2. Ordem alfabética do ticker.
-
-O ranking é recalculado a cada atualização da API e cacheado por 60 segundos.
+2. Ordem alfabética do código (`symbol`).
 
 ---
 
-## 7. Pipeline resumido
-
-1. Carregar dados crus da API.
-2. Derivar métricas compostas (liquidez, tracking, risco, momentum).
-3. Winsorizar e normalizar para 0–100.
-4. Calcular scores de Fundamentos e Oportunidade com pesos acima.
-5. Aplicar filtros/penalizações (value trap).
-6. Combinar em `FinalScore` e ordenar.
-7. Expor componentes e métricas para auditoria na UI.
-
----
-
-## 8. Boas práticas
-
-- **Cobertura de dados**: monitore indicadores sempre nulos (via `findEmptyIndicators`) para acionar fallback ou remover métricas pouco confiáveis.
-- **Classes especiais**: ETFs alavancados ou inversos continuam no ranking, mas o risco balanceado tende a penalizá-los. Se desejar destacá-los, utilize filtros na UI.
-- **Atualização do emissor**: mantenha o mapa de scores com curadoria contínua (histórico de fechamentos, tracking, tamanho da prateleira).
-- **Backtests**: reavalie pesos comparando periodicamente o top-N com benchmarks (ex.: S&P 500, BOVA11) para verificar aderência.
-
----
-
-## 9. Pseudocódigo
+## 7. Pseudocódigo do Algoritmo
 
 ```pseudo
-for each etf in universe:
+for each etf in market_universe:
   expense = etf.expenseRatio
   liq_comp = mean([log10(dollarVolume), log10(volume), log1p(relativeVolume)])
-  holdings = holdings or holdingsCount
+  holdings = etf.holdings
   assets_log = log10(assets)
-  issuer = issuerScoreMap(issuer)
+  issuer = issuerScoreMap(etf.issuer)
 
-  sharpe = clamp(sharpeRatio, [-2, 5])
-  sortino = clamp(sortinoRatio, [-2, 6])
+  sharpe = clamp(etf.sharpeRatio, [-2, 5])
+  sortino = clamp(etf.sortinoRatio, [-2, 6])
   risk_adj = mean(normalize(sharpe), normalize(sortino))
 
   div_stability = mean(normalize(dividendGrowthYears), normalize(dividendGrowth))
-  tracking = mean(abs(tracking metrics))
-  risk_balance = mean(abs(beta - 1), ATR / price)
+  risk_balance = mean(abs(beta - 1), atr / base_price)
 
   opportunity_signals = {
-    intraday: ch1d,
-    discount: high52ch,
-    floor: low52ch,
-    ma_combo: mean(moving average changes),
-    rsi: rsi,
+    intraday: etf.ch1d,
+    discount: etf.high52ch,
+    floor: etf.low52ch,
+    ma_combo: mean([ma20ch, ma50ch, ma150ch, ma200ch]),
+    rsi: etf.rsi,
     volume: log1p(relativeVolume),
-    momentum1m: tr1m,
-    gap: mean(premarketChangePercent, afterHoursChangePercent)
+    momentum1m: etf.tr1m,
+    gap: mean([premarketChangePercent, postmarketChangePercent])
   }
 
-  fundamentalsScore = weightedAverage(fundamentals)
-  opportunityScore = weightedAverage(opportunity_signals)
+  fundamentalsScore = weightedSum(fundamentals, FUNDAMENTALS_WEIGHTS)
+  opportunityScore = weightedSum(opportunity_signals, OPPORTUNITY_WEIGHTS)
 
-  if rsi < 20 and log1p(relativeVolume) < log1p(1):
-    opportunityScore *= 0.85
+  if rsi < 20 and relativeVolume < 1:
+    opportunityScore = opportunityScore * 0.85
 
-  finalScore = 0.6 * fundamentalsScore + 0.4 * opportunityScore
+  finalScore = 0.55 * fundamentalsScore + 0.45 * opportunityScore
 ```
 
 ---
 
-## 10. Interface (resumo)
+## 8. Conformidade do Contrato e Cache
 
-- **Ranking**: opções de visualização em cards ou datagrid, paginação de 12 itens, busca e botões de copiar página completa ou a página atual.
-- **Detalhes**: seções de identificação, liquidez, risco/tracking, preços, dividendos, total return e históricos, refletindo os novos componentes.
-- **Sobre**: explica os benefícios da dolarização com ETFs e a metodologia atualizada (fundamentos vs. oportunidade) com linguagem acessível.
-
----
-
-Com esses ajustes, o ranking prioriza ETFs com custo competitivo, liquidez real, execução consistente do índice, dividendos sustentáveis e momentum validado — tudo com filtros para evitar quedas sem fluxo. Greg recomenda revisitar pesos trimestralmente e acompanhar o comportamento pós-implantação para refinar ainda mais o modelo.
+- A integridade de todos os 110 atributos providos pela API de mercado é validada pelo teste de contrato ao vivo (`src/services/__tests__/market-data.contract.test.ts`).
+- O ranking calculado é retido em cache de memória com tempo de vida de 15 minutos (`RANKING_CACHE_TTL_MS`), compartilhando os resultados entre requisições simultâneas.

@@ -4,14 +4,14 @@ import EtfDetailsView from "@/features/ranking/components/EtfDetailsView";
 import { fetchRankedEtfs } from "@/features/ranking/server/scoring";
 
 interface EtfPageProps {
-  params: {
+  params: Promise<{
     symbol: string;
-  };
+  }>;
 }
 
-export default async function EtfPage({ params }: EtfPageProps) {
+export default async function EtfPage(props: EtfPageProps) {
+  const [params, ranked] = await Promise.all([props.params, fetchRankedEtfs()]);
   const symbol = params.symbol?.toUpperCase();
-  const ranked = await fetchRankedEtfs();
   const etf = ranked.find((item) => item.symbol.toUpperCase() === symbol);
 
   if (!etf) {

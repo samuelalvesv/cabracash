@@ -1,7 +1,15 @@
 import { fetchMarketData } from "@/services/market-data";
 
-import { mean, minMaxScale, safeNumber, winsorize } from "./utils";
-import type { EtfEntry, FeatureSet, RankedEtf, RawEtfMetrics, ScaledFeatureSet } from "./types";
+import { mean, minMaxScale, toNullableNumber, winsorize } from "./utils";
+import type {
+  EtfEntry,
+  FeatureKey,
+  FeatureSet,
+  FundamentalFeatureKey,
+  OpportunityFeatureKey,
+  RankedEtf,
+  RawEtfMetrics,
+} from "./types";
 import { RANKING_CACHE_KEY, RANKING_CACHE_TTL_MS, fetchWithCache } from "./cache";
 
 const ISSUER_SCORES: Record<string, number> = {
@@ -15,7 +23,7 @@ const ISSUER_SCORES: Record<string, number> = {
 const DEFAULT_ISSUER_SCORE = 60;
 
 const FEATURE_CONFIG: Record<
-  keyof FeatureSet,
+  FeatureKey,
   {
     invert?: boolean;
     pretransform?: (value: number) => number;
@@ -29,7 +37,6 @@ const FEATURE_CONFIG: Record<
   riskAdjustedReturn: {},
   dividendYield: {},
   dividendStability: {},
-  trackingEfficiency: { invert: true },
   riskBalance: { invert: true },
   intradayMomentum: {},
   discountFromHigh: { invert: true },
@@ -41,20 +48,19 @@ const FEATURE_CONFIG: Record<
   gapSignal: {},
 };
 
-const FUNDAMENTALS_WEIGHTS: Record<string, number> = {
-  expenseRatio: 0.12,
-  liquidityComposite: 0.12,
+export const FUNDAMENTALS_WEIGHTS: Record<FundamentalFeatureKey, number> = {
+  expenseRatio: 0.14,
+  liquidityComposite: 0.14,
   holdings: 0.08,
-  assetsLog: 0.06,
+  assetsLog: 0.08,
   issuerScore: 0.08,
-  riskAdjustedReturn: 0.18,
+  riskAdjustedReturn: 0.2,
   dividendYield: 0.07,
   dividendStability: 0.07,
-  trackingEfficiency: 0.1,
-  riskBalance: 0.12,
+  riskBalance: 0.14,
 };
 
-const OPPORTUNITY_WEIGHTS: Record<string, number> = {
+export const OPPORTUNITY_WEIGHTS: Record<OpportunityFeatureKey, number> = {
   intradayMomentum: 0.12,
   discountFromHigh: 0.18,
   distanceFromLow: 0.15,
@@ -89,11 +95,6 @@ function scoreIssuer(issuer: unknown): number | null {
   return ISSUER_SCORES[issuer] ?? DEFAULT_ISSUER_SCORE;
 }
 
-function toNullableNumber(value: unknown): number | null {
-  const numeric = safeNumber(value, NaN);
-  return Number.isFinite(numeric) ? numeric : null;
-}
-
 function log10Safely(value: number | null): number | null {
   if (value === null || Number.isNaN(value)) {
     return null;
@@ -112,23 +113,21 @@ function log1pSafely(value: number | null): number | null {
   return Math.log1p(normalized);
 }
 
-function computeAtrRatio(metrics: RawEtfMetrics): number | null {
+export function computeAtrRatio(metrics: RawEtfMetrics): number | null {
   const atr = toNullableNumber(metrics.atr);
-  const basePrice = [metrics.close, metrics.open, metrics.preClose]
-    .map((value) => toNullableNumber(value))
-    .find((value) => value !== null && value > 0);
+  const basePrice = [metrics.price, metrics.close, metrics.open, metrics.preClose]
+    .map(toNullableNumber)
+    .find((value): value is number => value !== null && value > 0);
 
-  if (atr === null || basePrice === undefined || basePrice === null) {
+  if (atr === null || basePrice === undefined) {
     return null;
   }
 
-  return atr / Math.max(basePrice, 1);
+  return atr / basePrice;
 }
 
 function computeMovingAverageCombo(metrics: RawEtfMetrics): number | null {
-  const values = [metrics.ma20ch, metrics.ma50ch, metrics.ma150ch, metrics.ma200ch].map((value) =>
-    toNullableNumber(value),
-  );
+  const values = [metrics.ma20ch, metrics.ma50ch, metrics.ma150ch, metrics.ma200ch].map(toNullableNumber);
   const filtered = values.filter((value): value is number => value !== null && Number.isFinite(value));
   if (filtered.length === 0) {
     return null;
@@ -139,9 +138,9 @@ function computeMovingAverageCombo(metrics: RawEtfMetrics): number | null {
 
 function computeRiskAdjustedReturn(sharpe: number | null, sortino: number | null): number | null {
   const normalizedSharpe =
-    sharpe === null ? null : (Math.min(Math.max(sharpe, -2), 5) + 2) / 7; // map [-2,5] -> [0,1]
+    sharpe === null ? null : (Math.min(Math.max(sharpe, -2), 5) + 2) / 7;
   const normalizedSortino =
-    sortino === null ? null : (Math.min(Math.max(sortino, -2), 6) + 2) / 8; // map [-2,6] -> [0,1]
+    sortino === null ? null : (Math.min(Math.max(sortino, -2), 6) + 2) / 8;
   const components = [normalizedSharpe, normalizedSortino].filter(
     (value): value is number => value !== null && Number.isFinite(value),
   );
@@ -157,7 +156,7 @@ function computeDividendStability(metrics: RawEtfMetrics): number | null {
 
   const normalizedYears = growthYears === null ? null : Math.min(Math.max(growthYears, 0), 25) / 25;
   const normalizedGrowth =
-    growthRate === null ? null : (Math.min(Math.max(growthRate, -5), 20) + 5) / 25; // clamp to [-5,20]
+    growthRate === null ? null : (Math.min(Math.max(growthRate, -5), 20) + 5) / 25;
 
   const components = [normalizedYears, normalizedGrowth].filter(
     (value): value is number => value !== null && Number.isFinite(value),
@@ -166,27 +165,6 @@ function computeDividendStability(metrics: RawEtfMetrics): number | null {
     return null;
   }
   return mean(components);
-}
-
-function computeTrackingEfficiency(metrics: RawEtfMetrics): number | null {
-  const candidateKeys = [
-    "trackingDifference",
-    "trackingError",
-    "trackingError1y",
-    "trackingError3y",
-    "trackingError5y",
-  ];
-
-  const values = candidateKeys
-    .map((key) => toNullableNumber(metrics[key]))
-    .filter((value): value is number => value !== null && Number.isFinite(value));
-
-  if (values.length === 0) {
-    return null;
-  }
-
-  const absValues = values.map((value) => Math.abs(value));
-  return mean(absValues);
 }
 
 function computeRiskBalance(betaDeviation: number | null, atrRatio: number | null): number | null {
@@ -201,9 +179,9 @@ function computeRiskBalance(betaDeviation: number | null, atrRatio: number | nul
 
 function computeGapSignal(
   premarketChangePercent: number | null,
-  afterHoursChangePercent: number | null,
+  postmarketChangePercent: number | null,
 ): number | null {
-  const components = [premarketChangePercent, afterHoursChangePercent].filter(
+  const components = [premarketChangePercent, postmarketChangePercent].filter(
     (value): value is number => value !== null && Number.isFinite(value),
   );
   if (components.length === 0) {
@@ -215,39 +193,34 @@ function computeGapSignal(
 function getFeatureSet(entry: EtfEntry): FeatureSet {
   const { metrics } = entry;
 
-  const betaDeviation = (() => {
-    const beta = toNullableNumber(metrics.beta);
-    if (beta === null) {
-      return null;
-    }
-    return Math.abs(beta - 1);
-  })();
+  const beta = toNullableNumber(metrics.beta);
+  const betaDeviation = beta === null ? null : Math.abs(beta - 1);
 
   const dollarVolumeLog = log10Safely(toNullableNumber(metrics.dollarVolume));
   const volumeLog = log10Safely(toNullableNumber(metrics.volume));
   const relativeVolumeLog = log1pSafely(toNullableNumber(metrics.relativeVolume));
   const atrRatio = computeAtrRatio(metrics);
-  const holdings = toNullableNumber(metrics.holdings) ?? toNullableNumber(metrics.holdingsCount);
+  const holdings = toNullableNumber(metrics.holdings);
   const assetsLog = log10Safely(toNullableNumber(metrics.assets));
   const premarketChangePercent = toNullableNumber(metrics.premarketChangePercent);
-  const afterHoursChangePercent =
-    toNullableNumber(metrics.afterHoursChangePercent) ?? toNullableNumber(metrics.postmarketChangePercent);
+  const postmarketChangePercent = toNullableNumber(metrics.postmarketChangePercent);
+
+  const liquidityParts = [dollarVolumeLog, volumeLog, relativeVolumeLog].filter(
+    (value): value is number => value !== null && Number.isFinite(value),
+  );
 
   return {
     expenseRatio: toNullableNumber(metrics.expenseRatio),
-    liquidityComposite: (() => {
-      const parts = [dollarVolumeLog, volumeLog, relativeVolumeLog].filter(
-        (value): value is number => value !== null && Number.isFinite(value),
-      );
-      return parts.length > 0 ? mean(parts) : null;
-    })(),
+    liquidityComposite: liquidityParts.length > 0 ? mean(liquidityParts) : null,
     holdings,
     assetsLog,
     issuerScore: scoreIssuer(metrics.issuer),
-    riskAdjustedReturn: computeRiskAdjustedReturn(toNullableNumber(metrics.sharpeRatio), toNullableNumber(metrics.sortinoRatio)),
+    riskAdjustedReturn: computeRiskAdjustedReturn(
+      toNullableNumber(metrics.sharpeRatio),
+      toNullableNumber(metrics.sortinoRatio),
+    ),
     dividendYield: toNullableNumber(metrics.dividendYield),
     dividendStability: computeDividendStability(metrics),
-    trackingEfficiency: computeTrackingEfficiency(metrics),
     riskBalance: computeRiskBalance(betaDeviation, atrRatio),
     intradayMomentum: toNullableNumber(metrics.ch1d),
     discountFromHigh: toNullableNumber(metrics.high52ch),
@@ -256,14 +229,14 @@ function getFeatureSet(entry: EtfEntry): FeatureSet {
     rsi: toNullableNumber(metrics.rsi),
     volumePulse: relativeVolumeLog,
     momentum1m: toNullableNumber(metrics.tr1m),
-    gapSignal: computeGapSignal(premarketChangePercent, afterHoursChangePercent),
+    gapSignal: computeGapSignal(premarketChangePercent, postmarketChangePercent),
   };
 }
 
-function compileFeatureMatrix(featureSets: FeatureSet[]): Record<keyof FeatureSet, number[]> {
-  const matrix = {} as Record<keyof FeatureSet, number[]>;
+function compileFeatureMatrix(featureSets: FeatureSet[]): Record<FeatureKey, number[]> {
+  const matrix = {} as Record<FeatureKey, number[]>;
 
-  (Object.keys(FEATURE_CONFIG) as Array<keyof FeatureSet>).forEach((key) => {
+  (Object.keys(FEATURE_CONFIG) as FeatureKey[]).forEach((key) => {
     matrix[key] = featureSets.map((features) => {
       const value = features[key];
       if (value === null || Number.isNaN(value)) {
@@ -271,58 +244,50 @@ function compileFeatureMatrix(featureSets: FeatureSet[]): Record<keyof FeatureSe
       }
 
       const config = FEATURE_CONFIG[key];
-      const transformed = config?.pretransform ? config.pretransform(value) : value;
-      return config?.invert ? -transformed : transformed;
+      const transformed = config.pretransform ? config.pretransform(value) : value;
+      return config.invert ? -transformed : transformed;
     });
   });
 
   return matrix;
 }
 
-function normalizeFeatureMatrix(matrix: Record<keyof FeatureSet, number[]>): Record<keyof FeatureSet, ScaledFeatureSet> {
-  const normalized = {} as Record<keyof FeatureSet, ScaledFeatureSet>;
+function normalizeFeatureMatrix(matrix: Record<FeatureKey, number[]>): Record<FeatureKey, number[]> {
+  const normalized = {} as Record<FeatureKey, number[]>;
 
-  (Object.keys(matrix) as Array<keyof FeatureSet>).forEach((key) => {
+  (Object.keys(matrix) as FeatureKey[]).forEach((key) => {
     const values = matrix[key];
     const availableValues = values.filter((value) => Number.isFinite(value));
 
     if (availableValues.length === 0) {
-      normalized[key] = {};
+      normalized[key] = values.map(() => 50);
       return;
     }
 
     const winsorized = winsorize(availableValues, 2, 98);
     const minMax = minMaxScale(winsorized);
 
-    const scaled: ScaledFeatureSet = {};
     let index = 0;
-    values.forEach((value, position) => {
+    normalized[key] = values.map((value) => {
       if (!Number.isFinite(value)) {
-        scaled[position] = 50;
-        return;
+        return 50;
       }
 
-      scaled[position] = minMax[index];
+      const score = minMax[index] ?? 50;
       index += 1;
+      return score;
     });
-
-    normalized[key] = scaled;
   });
 
   return normalized;
 }
 
 function pickScaledScore(
-  normalized: Record<keyof FeatureSet, ScaledFeatureSet>,
+  normalized: Record<FeatureKey, number[]>,
   index: number,
-  key: keyof FeatureSet,
+  key: FeatureKey,
 ): number {
-  const featureScores = normalized[key];
-  if (!featureScores) {
-    return 50;
-  }
-
-  const score = featureScores[index];
+  const score = normalized[key]?.[index];
   if (score === undefined || Number.isNaN(score)) {
     return 50;
   }
@@ -341,18 +306,18 @@ export function scoreEtfs(entries: EtfEntry[]): RankedEtf[] {
 
   return entries
     .map<RankedEtf>((entry, index) => {
-      const fundamentalsComponents: Record<string, number> = {};
-      const opportunityComponents: Record<string, number> = {};
+      const fundamentalsComponents = {} as Record<FundamentalFeatureKey, number>;
+      const opportunityComponents = {} as Record<OpportunityFeatureKey, number>;
 
-      Object.entries(FUNDAMENTALS_WEIGHTS).forEach(([key, weight]) => {
-        fundamentalsComponents[key] = pickScaledScore(normalized, index, key as keyof FeatureSet) * weight;
+      (Object.entries(FUNDAMENTALS_WEIGHTS) as Array<[FundamentalFeatureKey, number]>).forEach(([key, weight]) => {
+        fundamentalsComponents[key] = pickScaledScore(normalized, index, key) * weight;
       });
 
       const fundamentalsScore =
         Object.values(fundamentalsComponents).reduce((acc, value) => acc + value, 0) / FUNDAMENTALS_WEIGHT_SUM;
 
-      Object.entries(OPPORTUNITY_WEIGHTS).forEach(([key, weight]) => {
-        opportunityComponents[key] = pickScaledScore(normalized, index, key as keyof FeatureSet) * weight;
+      (Object.entries(OPPORTUNITY_WEIGHTS) as Array<[OpportunityFeatureKey, number]>).forEach(([key, weight]) => {
+        opportunityComponents[key] = pickScaledScore(normalized, index, key) * weight;
       });
 
       let opportunityScore =
@@ -365,7 +330,7 @@ export function scoreEtfs(entries: EtfEntry[]): RankedEtf[] {
         (features.volumePulse === null || features.volumePulse < LOW_VOLUME_LOG_THRESHOLD)
       ) {
         opportunityScore *= VALUE_TRAP_PENALTY;
-        Object.keys(opportunityComponents).forEach((key) => {
+        (Object.keys(opportunityComponents) as OpportunityFeatureKey[]).forEach((key) => {
           opportunityComponents[key] *= VALUE_TRAP_PENALTY;
         });
       }
@@ -385,13 +350,18 @@ export function scoreEtfs(entries: EtfEntry[]): RankedEtf[] {
         },
       };
     })
-    .sort((a, b) => b.scores.final - a.scores.final);
+    .sort(
+      (a, b) =>
+        b.scores.final - a.scores.final ||
+        b.scores.fundamentals - a.scores.fundamentals ||
+        a.symbol.localeCompare(b.symbol),
+    );
 }
 
 export async function fetchRankedEtfs(): Promise<RankedEtf[]> {
   return fetchWithCache(RANKING_CACHE_KEY, RANKING_CACHE_TTL_MS, async () => {
     const response = await fetchMarketData();
-    const entries = buildEtfEntries(response.data?.data ?? {});
+    const entries = buildEtfEntries(response.data.data);
     return scoreEtfs(entries);
   });
 }

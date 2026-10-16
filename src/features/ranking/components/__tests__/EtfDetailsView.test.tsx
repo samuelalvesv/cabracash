@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } fr
 
 import EtfDetailsView from "@/features/ranking/components/EtfDetailsView";
 import { FUNDAMENTAL_DEFINITIONS, OPPORTUNITY_DEFINITIONS } from "@/features/ranking/server/metricDefinitions";
-import type { RankedEtf } from "@/features/ranking/server/types";
+import type { FundamentalFeatureKey, OpportunityFeatureKey, RankedEtf } from "@/features/ranking/server/types";
 import ThemeRegistry from "@/theme/ThemeRegistry";
 
 vi.mock("next/link", () => ({
@@ -42,7 +42,6 @@ function buildEtf(symbol: string): RankedEtf {
     riskAdjustedReturn: 0.7,
     dividendYield: 2.0,
     dividendStability: 0.55,
-    trackingEfficiency: 0.012,
     riskBalance: 0.06,
     intradayMomentum: 1.1,
     discountFromHigh: -6,
@@ -54,17 +53,17 @@ function buildEtf(symbol: string): RankedEtf {
     gapSignal: 0.215,
   };
 
-  const fundamentalsComponents: Record<string, number> = {};
+  const fundamentalsComponents = {} as Record<FundamentalFeatureKey, number>;
   FUNDAMENTAL_DEFINITIONS.forEach((def) => {
     fundamentalsComponents[def.key] = (def.weight ?? 0) * 75;
   });
 
-  const opportunityComponents: Record<string, number> = {};
+  const opportunityComponents = {} as Record<OpportunityFeatureKey, number>;
   OPPORTUNITY_DEFINITIONS.forEach((def) => {
     opportunityComponents[def.key] = (def.weight ?? 0) * 65;
   });
 
-  const raw = {
+  const raw: RankedEtf["raw"] = {
     name: "Detalhes ETF",
     assetClass: "Asset Allocation",
     etfCategory: "Global Blend",
@@ -78,7 +77,7 @@ function buildEtf(symbol: string): RankedEtf {
     inceptionDate: "2010-01-01",
     cusip: "123456789",
     isin: "US1234567890",
-    tags: "global, allocation",
+    tags: ["global", "allocation"],
     assets: 700_000_000,
     holdings: 150,
     price: 60,
@@ -87,12 +86,9 @@ function buildEtf(symbol: string): RankedEtf {
     low: 58,
     close: 60,
     preClose: 59.5,
-    premarketClose: 59.2,
     premarketPrice: 59.8,
     premarketChangePercent: 0.4,
     premarketVolume: 15000,
-    afterHoursPrice: 60.5,
-    afterHoursChangePercent: 0.25,
     postmarketPrice: 60.3,
     postmarketChangePercent: 0.2,
     postClose: 60.2,
@@ -168,7 +164,7 @@ function buildEtf(symbol: string): RankedEtf {
     allTimeLow: 30,
     allTimeLowChange: 100,
     allTimeLowDate: "2015-01-01",
-  } as RankedEtf["raw"];
+  };
 
   return {
     symbol,
@@ -176,7 +172,7 @@ function buildEtf(symbol: string): RankedEtf {
     scores: {
       fundamentals: 75,
       opportunity: 65,
-      final: 0.6 * 75 + 0.4 * 65,
+      final: 0.55 * 75 + 0.45 * 65,
       fundamentalsComponents,
       opportunityComponents,
     },

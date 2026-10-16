@@ -6,7 +6,7 @@ const commonSettings = {
     borderRadius: 12,
   },
   typography: {
-    fontFamily: ["Inter", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"].join(", "),
+    fontFamily: ["var(--font-geist-sans)", "Inter", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"].join(", "),
   },
 };
 

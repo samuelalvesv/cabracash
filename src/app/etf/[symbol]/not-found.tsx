@@ -1,41 +1,18 @@
 "use client";
 
-import { useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Box, Button, Container, Stack, Typography } from "@mui/material";
-import { buildRankingQueryString, loadRankingFilters } from "@/features/ranking/components/rankingFilterStorage";
+import { useRankingHref } from "@/features/ranking/components/useRankingHref";
 
 export default function EtfNotFound() {
   const searchParams = useSearchParams();
-
-  const rankingHref = useMemo(() => {
-    const params = new URLSearchParams();
-    const allowedKeys = ["search", "minFundamentals", "minOpportunity", "page"];
-    allowedKeys.forEach((key) => {
-      const value = searchParams.get(key);
-      if (typeof value === "string" && value.length > 0) {
-        params.set(key, value);
-      }
-    });
-
-    if (params.size > 0) {
-      return `/?${params.toString()}`;
-    }
-
-    const stored = loadRankingFilters();
-    if (stored) {
-      const query = buildRankingQueryString(stored);
-      return `/${query}`;
-    }
-
-    return "/";
-  }, [searchParams]);
+  const rankingHref = useRankingHref(searchParams);
 
   return (
     <Container maxWidth="sm" sx={{ py: 8 }}>
-      <Stack spacing={3} alignItems="center">
-        <Typography variant="h4" fontWeight={700} align="center">
+      <Stack spacing={3} sx={{ alignItems: "center" }}>
+        <Typography variant="h4" align="center" sx={{ fontWeight: 700 }}>
           ETF não encontrado
         </Typography>
         <Typography variant="body1" color="text.secondary" align="center">

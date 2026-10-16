@@ -28,7 +28,7 @@ import {
   type SnackbarCloseReason,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
-import { DataGrid, type GridColDef, type GridColumnVisibilityModel, type GridRenderCellParams } from "@mui/x-data-grid";
+import { DataGrid, type GridColDef, type GridColumnVisibilityModel } from "@mui/x-data-grid";
 import SearchIcon from "@mui/icons-material/Search";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import ViewModuleIcon from "@mui/icons-material/ViewModule";
@@ -39,7 +39,16 @@ import type { RankedEtf } from "@/features/ranking/server/types";
 import { FUNDAMENTAL_DEFINITIONS, OPPORTUNITY_DEFINITIONS } from "@/features/ranking/server/metricDefinitions";
 import { DETAIL_SECTIONS, formatDetailValue, type DetailItemConfig, type DetailValue } from "@/features/ranking/server/detailSections";
 import { formatMetric, formatScore } from "@/shared/utils/formatters";
-import { loadRankingFilters, saveRankingFilters } from "@/features/ranking/components/rankingFilterStorage";
+import {
+  buildRankingQueryString,
+  clampScore,
+  loadRankingFilters,
+  normalizePage,
+  parseRankingSearchParams,
+  parseThresholdInput,
+  sanitizeThresholdInput,
+  saveRankingFilters,
+} from "@/features/ranking/components/rankingFilterStorage";
 
 type ViewMode = "cards" | "grid";
 
@@ -51,6 +60,9 @@ type DetailColumnConfig = DetailItemConfig & {
 type RankingGridRow = {
   id: string;
   position: number;
+  scoreFinal: number;
+  scoreFundamentals: number;
+  scoreOpportunity: number;
 } & Record<string, DetailValue>;
 
 const DETAIL_COLUMN_CONFIGS: DetailColumnConfig[] = DETAIL_SECTIONS.flatMap((section) =>
@@ -63,40 +75,18 @@ const DETAIL_COLUMN_CONFIGS: DetailColumnConfig[] = DETAIL_SECTIONS.flatMap((sec
 
 const DEFAULT_COLUMN_VISIBILITY: Record<string, boolean> = DETAIL_COLUMN_CONFIGS.reduce<Record<string, boolean>>(
   (acc, item) => {
-    acc[item.key] = item.defaultVisible ?? true;
+    acc[item.key] = item.defaultVisible ?? false;
     return acc;
   },
-  {},
+  {
+    scoreFinal: true,
+    scoreFundamentals: true,
+    scoreOpportunity: true,
+  },
 );
 
 const GRID_ROW_HEIGHT = 52;
 const GRID_HEADER_HEIGHT = 56;
-
-const clampScore = (value: number): number => Math.min(Math.max(value, 0), 100);
-
-const parseThresholdInput = (value: string): number => {
-  if (!value) {
-    return 0;
-  }
-
-  const sanitized = value.replace(",", ".");
-  const numeric = Number.parseFloat(sanitized);
-  if (Number.isNaN(numeric)) {
-    return 0;
-  }
-
-  return clampScore(numeric);
-};
-
-const sanitizeThresholdInput = (value: string): string => {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    return "";
-  }
-
-  const normalized = parseThresholdInput(trimmed);
-  return normalized > 0 ? normalized.toString() : "";
-};
 
 interface RankingViewProps {
   items: RankedEtf[];
@@ -111,23 +101,54 @@ function buildSearchText(item: RankedEtf): string {
   const strings: string[] = [item.symbol];
   const raw = item.raw;
 
-  const candidateKeys = [
-    "fundName",
-    "name",
-    "etfCategory",
-    "issuer",
-    "etfIndex",
-    "tags",
-  ];
+  const candidateKeys = ["name", "etfCategory", "issuer", "etfIndex", "tags"] as const;
 
   candidateKeys.forEach((key) => {
     const value = raw?.[key];
     if (typeof value === "string") {
       strings.push(value);
+    } else if (Array.isArray(value)) {
+      strings.push(value.join(" "));
     }
   });
 
   return strings.join(" ").toLowerCase();
+}
+
+function resolveInitialFilters({
+  initialPage,
+  initialSearch,
+  initialMinFundamentals,
+  initialMinOpportunity,
+}: {
+  initialPage: number;
+  initialSearch: string;
+  initialMinFundamentals: number;
+  initialMinOpportunity: number;
+}) {
+  const hasInitialFilters =
+    initialPage !== 1 || initialSearch.trim().length > 0 || initialMinFundamentals > 0 || initialMinOpportunity > 0;
+
+  if (!hasInitialFilters && typeof window !== "undefined" && window.location.search.length <= 1) {
+    const stored = loadRankingFilters();
+    if (stored) {
+      return {
+        page: normalizePage(stored.page),
+        search: (stored.search ?? "").trim(),
+        fundamentals: clampScore(stored.minFundamentals ?? 0),
+        opportunity: clampScore(stored.minOpportunity ?? 0),
+        restoredFromStorage: true,
+      };
+    }
+  }
+
+  return {
+    page: initialPage,
+    search: initialSearch.trim(),
+    fundamentals: clampScore(initialMinFundamentals),
+    opportunity: clampScore(initialMinOpportunity),
+    restoredFromStorage: false,
+  };
 }
 
 export function RankingView({
@@ -138,7 +159,14 @@ export function RankingView({
   initialMinFundamentals = 0,
   initialMinOpportunity = 0,
 }: RankingViewProps) {
-
+  const [initialFilters] = useState(() =>
+    resolveInitialFilters({
+      initialPage,
+      initialSearch,
+      initialMinFundamentals,
+      initialMinOpportunity,
+    }),
+  );
 
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [columnVisibilityModel, setColumnVisibilityModel] = useState<GridColumnVisibilityModel>(() => ({
@@ -146,50 +174,42 @@ export function RankingView({
   }));
   const [copyFeedback, setCopyFeedback] = useState<{ message: string; severity: "success" | "error" } | null>(null);
 
-  const [searchValue, setSearchValue] = useState(initialSearch);
-  const trimmedInitial = initialSearch.trim();
-  const [debouncedValue, setDebouncedValue] = useState(trimmedInitial);
-  const [debouncedQuery, setDebouncedQuery] = useState(trimmedInitial.toLowerCase());
-  const [page, setPage] = useState(initialPage);
-  const previousSearchRef = useRef(trimmedInitial);
+  const [searchValue, setSearchValue] = useState(initialFilters.search);
+  const [debouncedValue, setDebouncedValue] = useState(initialFilters.search);
+  const debouncedQuery = debouncedValue.toLowerCase();
+  const [page, setPage] = useState(initialFilters.page);
+  const previousSearchRef = useRef(initialFilters.search);
   const pathnameRef = useRef<string>("");
 
-  const normalizedInitialFundamentals = clampScore(initialMinFundamentals);
-  const normalizedInitialOpportunity = clampScore(initialMinOpportunity);
   const [minFundamentalsInput, setMinFundamentalsInput] = useState(
-    normalizedInitialFundamentals > 0 ? normalizedInitialFundamentals.toString() : "",
+    initialFilters.fundamentals > 0 ? initialFilters.fundamentals.toString() : "",
   );
   const [minOpportunityInput, setMinOpportunityInput] = useState(
-    normalizedInitialOpportunity > 0 ? normalizedInitialOpportunity.toString() : "",
+    initialFilters.opportunity > 0 ? initialFilters.opportunity.toString() : "",
   );
 
   const minFundamentals = useMemo(() => parseThresholdInput(minFundamentalsInput), [minFundamentalsInput]);
   const minOpportunity = useMemo(() => parseThresholdInput(minOpportunityInput), [minOpportunityInput]);
   const thresholdsActive = minFundamentals > 0 || minOpportunity > 0;
-  const previousThresholdsRef = useRef({ fundamentals: normalizedInitialFundamentals, opportunity: normalizedInitialOpportunity });
+  const previousThresholdsRef = useRef({
+    fundamentals: initialFilters.fundamentals,
+    opportunity: initialFilters.opportunity,
+  });
   const hasActiveFilters = searchValue.trim().length > 0 || thresholdsActive;
   const updateUrlRef = useRef<
     (overrides?: Partial<{ page: number; search: string; fundamentals: number; opportunity: number }>) => void
   >(() => {});
 
-  const activeFilterQueryString = useMemo(() => {
-    const params = new URLSearchParams();
-    const trimmedSearch = debouncedValue.trim();
-    if (trimmedSearch.length > 0) {
-      params.set("search", trimmedSearch);
-    }
-    if (minFundamentals > 0) {
-      params.set("minFundamentals", minFundamentals.toString());
-    }
-    if (minOpportunity > 0) {
-      params.set("minOpportunity", minOpportunity.toString());
-    }
-    if (page > 1) {
-      params.set("page", page.toString());
-    }
-    const query = params.toString();
-    return query.length > 0 ? `?${query}` : "";
-  }, [debouncedValue, minFundamentals, minOpportunity, page]);
+  const activeFilterQueryString = useMemo(
+    () =>
+      buildRankingQueryString({
+        page,
+        search: debouncedValue,
+        minFundamentals,
+        minOpportunity,
+      }),
+    [debouncedValue, minFundamentals, minOpportunity, page],
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -200,20 +220,25 @@ export function RankingView({
 
     const handlePopState = () => {
       const params = new URLSearchParams(window.location.search);
-      const nextSearch = (params.get("search") ?? "").trim();
-      setSearchValue(nextSearch);
-      setDebouncedValue(nextSearch);
-      setDebouncedQuery(nextSearch.toLowerCase());
-      previousSearchRef.current = nextSearch;
+      const parsed = parseRankingSearchParams({
+        page: params.get("page") ?? undefined,
+        search: params.get("search") ?? undefined,
+        minFundamentals: params.get("minFundamentals") ?? undefined,
+        minOpportunity: params.get("minOpportunity") ?? undefined,
+      });
 
-      const nextPage = Math.max(1, Number.parseInt(params.get("page") ?? "1", 10));
-      setPage(nextPage);
+      setSearchValue(parsed.search);
+      setDebouncedValue(parsed.search);
+      previousSearchRef.current = parsed.search;
 
-      const nextFundamentals = parseThresholdInput(params.get("minFundamentals") ?? "");
-      const nextOpportunity = parseThresholdInput(params.get("minOpportunity") ?? "");
-      setMinFundamentalsInput(nextFundamentals > 0 ? nextFundamentals.toString() : "");
-      setMinOpportunityInput(nextOpportunity > 0 ? nextOpportunity.toString() : "");
-      previousThresholdsRef.current = { fundamentals: nextFundamentals, opportunity: nextOpportunity };
+      setPage(parsed.page);
+
+      setMinFundamentalsInput(parsed.minFundamentals > 0 ? parsed.minFundamentals.toString() : "");
+      setMinOpportunityInput(parsed.minOpportunity > 0 ? parsed.minOpportunity.toString() : "");
+      previousThresholdsRef.current = {
+        fundamentals: parsed.minFundamentals,
+        opportunity: parsed.minOpportunity,
+      };
     };
 
     window.addEventListener("popstate", handlePopState);
@@ -225,9 +250,7 @@ export function RankingView({
   // Debounce search input
   useEffect(() => {
     const handler = setTimeout(() => {
-      const trimmed = searchValue.trim();
-      setDebouncedValue(trimmed);
-      setDebouncedQuery(trimmed.toLowerCase());
+      setDebouncedValue(searchValue.trim());
     }, 250);
 
     return () => {
@@ -241,39 +264,19 @@ export function RankingView({
         return;
       }
 
-      const params = new URLSearchParams(window.location.search);
-
       const nextPage = overrides?.page ?? page;
-      if (nextPage > 1) {
-        params.set("page", nextPage.toString());
-      } else {
-        params.delete("page");
-      }
-
       const nextSearch = (overrides?.search ?? debouncedValue).trim();
-      if (nextSearch.length > 0) {
-        params.set("search", nextSearch);
-      } else {
-        params.delete("search");
-      }
-
       const fundamentalsValue = overrides?.fundamentals ?? minFundamentals;
-      if (fundamentalsValue > 0) {
-        params.set("minFundamentals", fundamentalsValue.toString());
-      } else {
-        params.delete("minFundamentals");
-      }
-
       const opportunityValue = overrides?.opportunity ?? minOpportunity;
-      if (opportunityValue > 0) {
-        params.set("minOpportunity", opportunityValue.toString());
-      } else {
-        params.delete("minOpportunity");
-      }
 
-      const nextQuery = params.toString();
+      const queryString = buildRankingQueryString({
+        page: nextPage,
+        search: nextSearch,
+        minFundamentals: fundamentalsValue,
+        minOpportunity: opportunityValue,
+      });
       const basePath = pathnameRef.current || window.location.pathname;
-      const nextUrl = nextQuery.length > 0 ? `${basePath}?${nextQuery}` : basePath;
+      const nextUrl = `${basePath}${queryString}`;
 
       window.history.replaceState(null, "", nextUrl);
       saveRankingFilters({
@@ -291,48 +294,15 @@ export function RankingView({
   }, [updateUrl]);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
+    if (initialFilters.restoredFromStorage) {
+      updateUrlRef.current?.({
+        page: initialFilters.page,
+        search: initialFilters.search,
+        fundamentals: initialFilters.fundamentals,
+        opportunity: initialFilters.opportunity,
+      });
     }
-
-    if (window.location.search.length > 1) {
-      return;
-    }
-
-    const hasInitialFilters =
-      initialPage !== 1 || initialSearch.trim().length > 0 || initialMinFundamentals > 0 || initialMinOpportunity > 0;
-    if (hasInitialFilters) {
-      return;
-    }
-
-    const stored = loadRankingFilters();
-    if (!stored) {
-      return;
-    }
-
-    const safePage = Math.max(1, Number.isFinite(stored.page) ? Math.round(stored.page) : 1);
-    const safeSearch = stored.search;
-    const trimmedSearch = safeSearch.trim();
-    const safeFundamentals = clampScore(stored.minFundamentals ?? 0);
-    const safeOpportunity = clampScore(stored.minOpportunity ?? 0);
-
-    previousSearchRef.current = trimmedSearch;
-    previousThresholdsRef.current = { fundamentals: safeFundamentals, opportunity: safeOpportunity };
-
-    setSearchValue(safeSearch);
-    setDebouncedValue(trimmedSearch);
-    setDebouncedQuery(trimmedSearch.toLowerCase());
-    setPage(safePage);
-    setMinFundamentalsInput(safeFundamentals > 0 ? safeFundamentals.toString() : "");
-    setMinOpportunityInput(safeOpportunity > 0 ? safeOpportunity.toString() : "");
-
-    updateUrlRef.current?.({
-      page: safePage,
-      search: trimmedSearch,
-      fundamentals: safeFundamentals,
-      opportunity: safeOpportunity,
-    });
-  }, [initialPage, initialSearch, initialMinFundamentals, initialMinOpportunity]);
+  }, [initialFilters]);
 
   // Reset page when search changes and update URL
   useEffect(() => {
@@ -408,23 +378,29 @@ export function RankingView({
 
   const handleFundamentalsBlur = useCallback(() => {
     setMinFundamentalsInput((current) => sanitizeThresholdInput(current));
-  }, []);
+  }, [setMinFundamentalsInput]);
 
   const handleOpportunityBlur = useCallback(() => {
     setMinOpportunityInput((current) => sanitizeThresholdInput(current));
-  }, []);
+  }, [setMinOpportunityInput]);
 
   const handleClearFilters = useCallback(() => {
     setSearchValue("");
     setDebouncedValue("");
-    setDebouncedQuery("");
     setMinFundamentalsInput("");
     setMinOpportunityInput("");
     previousSearchRef.current = "";
     previousThresholdsRef.current = { fundamentals: 0, opportunity: 0 };
     setPage(1);
     updateUrl({ page: 1, search: "", fundamentals: 0, opportunity: 0 });
-  }, [updateUrl]);
+  }, [
+    setSearchValue,
+    setDebouncedValue,
+    setMinFundamentalsInput,
+    setMinOpportunityInput,
+    setPage,
+    updateUrl,
+  ]);
 
   const dataGridColumns = useMemo<GridColDef<RankingGridRow>[]>(() => {
     const baseColumns: GridColDef<RankingGridRow>[] = [
@@ -434,7 +410,28 @@ export function RankingView({
         headerAlign: "center",
         align: "center",
         sortable: false,
-        width: 110,
+        width: 90,
+      },
+      {
+        field: "scoreFinal",
+        headerName: "Score Final",
+        minWidth: 120,
+        sortable: true,
+        valueFormatter: (value: number) => formatScore(value),
+      },
+      {
+        field: "scoreFundamentals",
+        headerName: "Fundamentos",
+        minWidth: 130,
+        sortable: true,
+        valueFormatter: (value: number) => formatScore(value),
+      },
+      {
+        field: "scoreOpportunity",
+        headerName: "Oportunidade",
+        minWidth: 130,
+        sortable: true,
+        valueFormatter: (value: number) => formatScore(value),
       },
     ];
 
@@ -444,8 +441,7 @@ export function RankingView({
       minWidth: 140,
       flex: 1,
       sortable: true,
-      renderCell: (params: GridRenderCellParams<RankingGridRow, DetailValue>) =>
-        formatDetailValue(params.value as DetailValue, column.format),
+      valueFormatter: (value: DetailValue) => formatDetailValue(value, column.format),
     }));
 
     return [...baseColumns, ...detailColumns];
@@ -461,6 +457,9 @@ export function RankingView({
       return {
         id: item.symbol,
         position: startIndex + idx,
+        scoreFinal: item.scores.final,
+        scoreFundamentals: item.scores.fundamentals,
+        scoreOpportunity: item.scores.opportunity,
         ...rowValues,
       };
     });
@@ -483,10 +482,22 @@ export function RankingView({
       return;
     }
 
-    const headers = ["Posição", ...DETAIL_COLUMN_CONFIGS.map((column) => column.label)];
+    const headers = [
+      "Posição",
+      "Score Final",
+      "Fundamentos",
+      "Oportunidade",
+      ...DETAIL_COLUMN_CONFIGS.map((column) => column.label),
+    ];
     const rows = filteredItems.map((item, index) => {
       const columnValues = DETAIL_COLUMN_CONFIGS.map((column) => formatDetailValue(column.getValue(item), column.format));
-      return [`${index + 1}`, ...columnValues].join("\t");
+      return [
+        `${index + 1}`,
+        formatScore(item.scores.final),
+        formatScore(item.scores.fundamentals),
+        formatScore(item.scores.opportunity),
+        ...columnValues,
+      ].join("\t");
     });
 
     const tableText = [headers.join("\t"), ...rows].join("\n");
@@ -506,12 +517,24 @@ export function RankingView({
     }
 
     const visibleDetailColumns = DETAIL_COLUMN_CONFIGS.filter((column) => columnVisibilityModel[column.key]);
-    const headers = ["Posição", ...visibleDetailColumns.map((column) => column.label)];
+    const headers = [
+      "Posição",
+      ...(columnVisibilityModel.scoreFinal ? ["Score Final"] : []),
+      ...(columnVisibilityModel.scoreFundamentals ? ["Fundamentos"] : []),
+      ...(columnVisibilityModel.scoreOpportunity ? ["Oportunidade"] : []),
+      ...visibleDetailColumns.map((column) => column.label),
+    ];
     const rows = gridRows.map((row) => {
       const columnValues = visibleDetailColumns.map((column) =>
         formatDetailValue(row[column.key], column.format),
       );
-      return [row.position.toString(), ...columnValues].join("\t");
+      return [
+        row.position.toString(),
+        ...(columnVisibilityModel.scoreFinal ? [formatScore(row.scoreFinal)] : []),
+        ...(columnVisibilityModel.scoreFundamentals ? [formatScore(row.scoreFundamentals)] : []),
+        ...(columnVisibilityModel.scoreOpportunity ? [formatScore(row.scoreOpportunity)] : []),
+        ...columnValues,
+      ].join("\t");
     });
 
     const tableText = [headers.join("\t"), ...rows].join("\n");
@@ -545,15 +568,16 @@ export function RankingView({
       <Stack spacing={4}>
         <Stack
           direction={{ xs: "column", sm: "row" }}
-          justifyContent="space-between"
-          alignItems={{ xs: "flex-start", sm: "center" }}
           spacing={2}
+          sx={{
+            justifyContent: "space-between",
+            alignItems: { xs: "flex-start", sm: "center" },
+          }}
         >
           <Box>
             <Typography
               variant="h4"
-              fontWeight={700}
-              sx={{ fontSize: { xs: "1.8rem", md: "2.2rem" } }}
+              sx={{ fontWeight: 700, fontSize: { xs: "1.8rem", md: "2.2rem" } }}
             >
               Ranking de ETFs
             </Typography>
@@ -564,9 +588,11 @@ export function RankingView({
           <Stack
             direction="row"
             spacing={1.5}
-            alignItems="center"
-            justifyContent={{ xs: "flex-start", sm: "flex-end" }}
-            flexWrap="wrap"
+            sx={{
+              alignItems: "center",
+              justifyContent: { xs: "flex-start", sm: "flex-end" },
+              flexWrap: "wrap",
+            }}
           >
             <ToggleButtonGroup color="primary" size="small" exclusive value={viewMode} onChange={handleViewModeChange}>
               <ToggleButton value="cards" aria-label="Mostrar cards">
@@ -583,8 +609,10 @@ export function RankingView({
         <Stack
           direction={{ xs: "column", md: "row" }}
           spacing={2}
-          alignItems={{ xs: "stretch", md: "flex-start" }}
-          sx={{ width: "100%" }}
+          sx={{
+            alignItems: { xs: "stretch", md: "flex-start" },
+            width: "100%",
+          }}
         >
           <TextField
             value={searchValue}
@@ -683,7 +711,7 @@ export function RankingView({
         <Alert severity={totalItems === 0 ? "warning" : "info"}>{helperText}</Alert>
 
         {totalPages > 1 && (
-          <Stack alignItems="center">
+          <Stack sx={{ alignItems: "center" }}>
             <Pagination
               page={safePage}
               count={totalPages}
@@ -744,17 +772,17 @@ export function RankingView({
                           flexGrow: 1,
                         }}
                       >
-                        <Stack direction="row" justifyContent="space-between" alignItems="center">
-                          <Typography variant="h5" fontWeight={700}>
+                        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+                          <Typography variant="h5" sx={{ fontWeight: 700 }}>
                             #{position} • {item.symbol}
                           </Typography>
                           <Chip label={`Score ${formatScore(scores.final)}`} color="primary" size="medium" />
                         </Stack>
 
-                        <Typography variant="subtitle1" fontWeight={600}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                           {typeof raw?.name === "string" && raw.name.length > 0 ? raw.name : "Nome indisponível"}
                         </Typography>
-                        <Stack direction="row" spacing={1} alignItems="center">
+                        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                           <Chip
                             size="small"
                             label={
@@ -770,7 +798,7 @@ export function RankingView({
                           )}
                         </Stack>
 
-                        <Stack spacing={2} flexGrow={1}>
+                        <Stack spacing={2} sx={{ flexGrow: 1 }}>
                           <Box sx={{ flex: 1 }}>
                             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                               Fundamentos
@@ -789,7 +817,7 @@ export function RankingView({
                                       </Typography>
                                     </TableCell>
                                     <TableCell align="right" sx={{ border: 0 }}>
-                                      <Typography variant="body2" fontWeight={600}>
+                                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
                                         {formatMetric(getter(item), format)}
                                       </Typography>
                                     </TableCell>
@@ -817,7 +845,7 @@ export function RankingView({
                                       </Typography>
                                     </TableCell>
                                     <TableCell align="right" sx={{ border: 0 }}>
-                                      <Typography variant="body2" fontWeight={600}>
+                                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
                                         {formatMetric(getter(item), format)}
                                       </Typography>
                                     </TableCell>
@@ -893,7 +921,7 @@ export function RankingView({
         )}
 
         {totalItems > 0 && totalPages > 1 && (
-          <Stack alignItems="center" spacing={2}>
+          <Stack spacing={2} sx={{ alignItems: "center" }}>
             <Pagination
               page={safePage}
               count={totalPages}
